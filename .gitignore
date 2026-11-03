@@ -1,7 +1,30 @@
+# Installed dependencies, build output, and tooling caches
 node_modules/
 .vite/
+.vite-temp/
 dist/
 .npm-cache/
+*.tsbuildinfo
+
+# Test output, coverage, and local browser sessions
 test-results/
 playwright-report/
+playwright/.cache/
+playwright/.auth/
+coverage/
+.nyc_output/
+
+# Local environment values; keep shareable example templates
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Runtime logs and operating-system/editor debris
 *.log
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.swp
+*.swo
+*~

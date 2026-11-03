@@ -1,8 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  buildClassificationRegions,
   buildDecisionSurfaces,
   spatialDomain,
+} from "../src/engine/decisionSurfaces.ts";
+import type {
+  ClassificationRegion,
+  Point3,
 } from "../src/engine/decisionSurfaces.ts";
 import type { SurfaceField } from "../src/engine/decisionSurfaces.ts";
 import { createEngine } from "../src/engine/createEngine.ts";
@@ -17,6 +22,95 @@ const dataset: Dataset = {
     { x: [1, 1, 1], y: 1 },
   ],
 };
+
+/** Signed tetrahedral volumes check that the envelopes are closed and correctly wound. */
+function volume(region: ClassificationRegion): number {
+  const triple = (a: Point3, b: Point3, c: Point3) =>
+    a[0] * (b[1] * c[2] - b[2] * c[1]) +
+    a[1] * (b[2] * c[0] - b[0] * c[2]) +
+    a[2] * (b[0] * c[1] - b[1] * c[0]);
+  return Math.abs(
+    region.faces.reduce(
+      (sum, face) =>
+        sum +
+        face
+          .slice(1, -1)
+          .reduce(
+            (subtotal, b, i) => subtotal + triple(face[0], b, face[i + 2]) / 6,
+            0,
+          ),
+      0,
+    ),
+  );
+}
+
+test("linear class volumes partition the entire visible box without assigning a third class its neighbors space", () => {
+  const data = { ...dataset, classes: 3 },
+    model = field((x) => [x[0], x[1], 0]);
+  const boundaries = buildDecisionSurfaces(data, model),
+    regions = buildClassificationRegions(data, model, boundaries);
+  assert.equal(regions.length, 3);
+  const [min, max] = spatialDomain(data),
+    boxVolume = (max[0] - min[0]) * (max[1] - min[1]) * (max[2] - min[2]);
+  assert.ok(
+    Math.abs(
+      regions.reduce((sum, region) => sum + volume(region), 0) - boxVolume,
+    ) < 1e-7,
+  );
+  for (const region of regions) {
+    assert.equal(region.approximate, false);
+    assert.ok(volume(region) > 0);
+    for (const point of region.faces.flat()) {
+      const scores = model.scores(point)!;
+      assert.ok(scores.every((score) => scores[region.label] >= score - 1e-8));
+    }
+  }
+});
+test("sampled class volumes omit internal same-class voxel faces", () => {
+  const model: SurfaceField = {
+    ...field(() => [0, 1], false),
+    scores: () => null,
+    predict: () => 1,
+  };
+  const regions = buildClassificationRegions(dataset, model, []);
+  assert.equal(regions.length, 1);
+  assert.equal(regions[0].label, 1);
+  assert.equal(regions[0].approximate, true);
+  assert.equal(
+    regions[0].faces.length,
+    600,
+    "Only the six exterior walls of the 10-cubed sampling grid belong in the envelope.",
+  );
+  const [min, max] = spatialDomain(dataset),
+    expected = (max[0] - min[0]) * (max[1] - min[1]) * (max[2] - min[2]);
+  assert.ok(Math.abs(volume(regions[0]) - expected) < 1e-7);
+});
+test("nonlinear class volumes stay bounded, and regression/clustering do not invent class space", () => {
+  const model = field(
+    (x) => [0, x.reduce((sum, value) => sum + value * value, 0) - 1],
+    false,
+  );
+  const regions = buildClassificationRegions(dataset, model, []),
+    [min, max] = spatialDomain(dataset);
+  assert.equal(regions.length, 2);
+  for (const region of regions)
+    for (const p of region.faces.flat())
+      p.forEach((value, i) =>
+        assert.ok(
+          Number.isFinite(value) &&
+            value >= min[i] - 1e-8 &&
+            value <= max[i] + 1e-8,
+        ),
+      );
+  assert.deepEqual(
+    buildClassificationRegions(dataset, { ...model, regression: true }, []),
+    [],
+  );
+  assert.deepEqual(
+    buildClassificationRegions(dataset, { ...model, clustering: true }, []),
+    [],
+  );
+});
 function field(scores: (input: Vector) => Vector, linear = true): SurfaceField {
   return {
     scores,

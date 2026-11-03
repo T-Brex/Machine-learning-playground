@@ -1,106 +1,18 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { NEURAL_METHODS } from "../data/catalog.ts";
 import {
   COLORS,
-  decisionSurfaceColor,
   drawHistogram,
   drawLines,
   drawLossSurface,
   drawNetwork,
-  drawScatter,
 } from "../engine/charts.ts";
 import type { PlaygroundProps } from "../types.ts";
 import CanvasChart from "./CanvasChart.tsx";
 import { Panel, Stat, format } from "./Panel.tsx";
 
-/** Keep per-class surface visibility local to this chart; prediction still uses the full model. */
+export { default as DataChart } from "./DataChart.tsx";
 
-export function DataChart({
-  playground: p,
-  selected,
-  onSelect,
-}: PlaygroundProps & {
-  selected?: number;
-  onSelect?: (index: number) => void;
-}) {
-  const [hiddenSurfaces, setHiddenSurfaces] = useState<string[]>([]);
-  useEffect(() => setHiddenSurfaces([]), [p.dataset, p.config.method]);
-  const boundaries = useMemo(
-    () => [
-      ...new Map(
-        (p.plot?.surfaces || []).map((face) => [
-          face.classes.join(":"),
-          face.classes,
-        ]),
-      ).entries(),
-    ],
-    [p.plot],
-  );
-  return (
-    <Panel title="Dati e previsione">
-      {p.dataset.data[0]?.x.length >= 3 &&
-        p.snapshot.fitted &&
-        boundaries.length > 0 && (
-          <div className="surface-controls" aria-label="Visibilità dei confini">
-            {boundaries.map(([key, classes]) => (
-              <label className="surface-toggle" key={key}>
-                <input
-                  type="checkbox"
-                  checked={!hiddenSurfaces.includes(key)}
-                  onChange={() =>
-                    setHiddenSurfaces((values) =>
-                      values.includes(key)
-                        ? values.filter((value) => value !== key)
-                        : [...values, key],
-                    )
-                  }
-                />
-                <span
-                  style={{
-                    background: p.snapshot.regression
-                      ? "#35d58a"
-                      : decisionSurfaceColor(classes, p.dataset.classes),
-                  }}
-                />
-                {p.snapshot.regression
-                  ? "Superficie di previsione"
-                  : `Confine ${classes.map((c) => c + 1).join(" ↔ ")}`}
-              </label>
-            ))}
-          </div>
-        )}
-      <CanvasChart
-        label="Dati e previsione del modello"
-        interactive
-        rotate={p.dataset.data[0]?.x.length >= 3}
-        resetKey={p.dataset}
-        height={340}
-        onSelect={onSelect}
-        draw={(ctx, w, h, view) =>
-          drawScatter(ctx, w, h, {
-            dataset: p.dataset,
-            plot: p.plot,
-            predictions: p.predictions,
-            centers: p.centers,
-            snapshot: p.snapshot,
-            view,
-            selected,
-            hiddenSurfaces,
-          })
-        }
-      />
-      <p className="small muted">
-        {p.dataset.data[0]?.x.length >= 3
-          ? p.snapshot.regression
-            ? "Punti = target osservati · superficie = previsione al target mediano. Assi = prime tre feature; le altre sono fissate alle medie del dataset."
-            : p.snapshot.clustering
-              ? "Colori = cluster assegnati · croci = centroidi. Assi = prime tre feature."
-              : "Superfici = confini di decisione tra le classi, non sezioni orizzontali. Assi = prime tre feature; le altre sono fissate alle medie del dataset."
-          : "Punti = esempi · sfondo = regioni previste dal modello."}
-      </p>
-    </Panel>
-  );
-}
 /** Choose the displayed validation metric from the actual task rather than the algorithm name. */
 export function LossCharts({ playground: p }: PlaygroundProps) {
   const s = p.snapshot,

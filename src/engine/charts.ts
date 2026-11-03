@@ -1,3 +1,6 @@
+import { renderSpatialScene } from "./spatialRenderer.ts";
+import { createPointOcclusion } from "./sceneOcclusion.ts";
+import type { PaintedFace } from "./sceneOcclusion.ts";
 import { spatialDomain } from "./decisionSurfaces.ts";
 import type { PredictionGrid } from "../solver/protocol.ts";
 import type {
@@ -197,6 +200,12 @@ export function drawScatter(
     view,
     selected = -1,
     hiddenSurfaces = [],
+    surfaceOpacity = {},
+    showPoints = true,
+    hiddenPointSets = [],
+    showRegions = false,
+    hiddenRegions = [],
+    regionOpacity = 0.12,
   }: {
     dataset: Dataset;
     plot: PredictionGrid | null;
@@ -206,6 +215,12 @@ export function drawScatter(
     view: ChartView;
     selected?: number;
     hiddenSurfaces?: string[];
+    surfaceOpacity?: Record<string, number>;
+    showPoints?: boolean;
+    hiddenPointSets?: number[];
+    showRegions?: boolean;
+    hiddenRegions?: number[];
+    regionOpacity?: number;
   },
 ) {
   const rows = dataset.data,
@@ -224,6 +239,11 @@ export function drawScatter(
     min[1] +
     ((centerY + view.panY - pixel) / (plotHeight * view.zoom) + 0.5) *
       (max[1] - min[1]);
+  const yawSpan = Math.abs(Math.cos(view.yaw)) + Math.abs(Math.sin(view.yaw));
+  const verticalSpan =
+    yawSpan * Math.abs(Math.sin(view.pitch)) + Math.abs(Math.cos(view.pitch));
+  const spatialScaleX = Math.min(w * 0.6, Math.max(1, w - 32) / yawSpan);
+  const spatialScaleY = Math.min(h * 0.65, Math.max(1, h - 32) / verticalSpan);
   const project = (x: Vector): [number, number] => {
     const n = [0, 1, 2].map(
       (i: number) => ((x[i] || 0) - min[i]) / (max[i] - min[i]) - 0.5,
@@ -236,15 +256,24 @@ export function drawScatter(
     const u = n[0] * Math.cos(view.yaw) - n[1] * Math.sin(view.yaw),
       v = n[0] * Math.sin(view.yaw) + n[1] * Math.cos(view.yaw);
     return [
-      w / 2 + u * w * 0.6 * view.zoom + view.panX,
-      h * 0.55 +
+      w / 2 + u * spatialScaleX * view.zoom + view.panX,
+      h * 0.5 +
         (v * Math.sin(view.pitch) - n[2] * Math.cos(view.pitch)) *
-          h *
-          0.65 *
+          spatialScaleY *
           view.zoom +
         view.panY,
     ];
   };
+  const depth = (input: Vector) => {
+    const n = [0, 1, 2].map(
+      (i) => ((input[i] || 0) - min[i]) / (max[i] - min[i]) - 0.5,
+    );
+    const along = n[0] * Math.sin(view.yaw) + n[1] * Math.cos(view.yaw);
+    return along * Math.cos(view.pitch) + n[2] * Math.sin(view.pitch);
+  };
+
+  let occlusion: ReturnType<typeof createPointOcclusion> | null = null;
+  const paintedFaces: PaintedFace[] = [];
   // Cells were evaluated in the worker. Reprojecting cached world-space data
   // keeps gestures independent of solver speed, with no inference during draw.
   if (snapshot.fitted && !three && plot) {
@@ -282,47 +311,57 @@ export function drawScatter(
     });
     // Project actual decision faces, not fixed-z prediction samples. Sort by
     // camera depth so rotating the view preserves the ordering of overlapping
-    // translucent planes. Points remain on top to keep all training examples legible.
-    const depth = (input: Vector) => {
-      const n = [0, 1, 2].map(
-        (i) => ((input[i] || 0) - min[i]) / (max[i] - min[i]) - 0.5,
-      );
-      const along = n[0] * Math.sin(view.yaw) + n[1] * Math.cos(view.yaw);
-      return along * Math.cos(view.pitch) + n[2] * Math.sin(view.pitch);
-    };
+    // translucent planes. Point fragments are composited by actual surface depth below.
     if (snapshot.fitted && plot) {
-      const faces = plot.surfaces
+      const boundaries = plot.surfaces
         .filter((face) => !hiddenSurfaces.includes(face.classes.join(":")))
         .map((face) => ({
-          face,
+          vertices: face.vertices,
+          color: snapshot.regression
+            ? "#35d58a"
+            : decisionSurfaceColor(face.classes, dataset.classes),
+          opacity: Math.max(
+            0,
+            Math.min(1, surfaceOpacity[face.classes.join(":")] ?? 0.26),
+          ),
+          outline: face.vertices.length > 3,
+        }));
+      // A region is a closed polyhedral/voxel envelope, not a stack of z slices.
+      // Its faces share the boundary painter's depth ordering, but have independent
+      // class visibility and opacity. No prediction is evaluated by these controls.
+      const regions = showRegions
+        ? plot.regions
+            .filter((region) => !hiddenRegions.includes(region.label))
+            .flatMap((region) =>
+              region.faces.map((vertices) => ({
+                vertices,
+                color: classColor(region.label),
+                opacity: Math.max(0, Math.min(1, regionOpacity)),
+                outline: false,
+              })),
+            )
+        : [];
+      const faces = [...regions, ...boundaries]
+        .filter((face) => face.opacity > 0)
+        .map((face) => ({
+          ...face,
           depth:
             face.vertices.reduce((sum, vertex) => sum + depth(vertex), 0) /
             face.vertices.length,
         }))
         .sort((a, b) => a.depth - b.depth);
-      for (const { face } of faces) {
+      for (const face of faces) {
         const vertices = face.vertices.map(project);
         if (vertices.length < 3) continue;
-        ctx.beginPath();
-        ctx.moveTo(...vertices[0]);
-        for (const point of vertices.slice(1)) ctx.lineTo(...point);
-        ctx.closePath();
-        const color = snapshot.regression
-          ? "#35d58a"
-          : decisionSurfaceColor(face.classes, dataset.classes);
-        ctx.fillStyle = color;
-        ctx.globalAlpha = 0.26;
-        ctx.fill();
-        // Exact hyperplanes are convex patches; outlining their perimeter makes
-        // them readable. Avoid drawing every internal edge of a nonlinear mesh.
-        if (face.vertices.length > 3) {
-          ctx.strokeStyle = color;
-          ctx.lineWidth = 1.2;
-          ctx.globalAlpha = 0.7;
-          ctx.stroke();
-        }
+        paintedFaces.push({
+          vertices,
+          depths: face.vertices.map(depth),
+          color: face.color,
+          opacity: face.opacity,
+          outline: face.outline,
+        });
       }
-      ctx.globalAlpha = 1;
+      occlusion = createPointOcclusion(paintedFaces, w, h);
     }
   } else
     axes(
@@ -336,27 +375,93 @@ export function drawScatter(
       visibleY(h - 44),
       visibleY(24),
     );
-  const points = rows.map((row, index) => ({ row, index, p: project(row.x) }));
-  points
-    .sort((a, b) => (a.row.x[2] || 0) - (b.row.x[2] || 0))
-    .forEach(({ row, index, p }) => {
-      const label =
-        snapshot.clustering && snapshot.fitted
-          ? (predictions[index] ?? -1)
-          : row.y;
-      ctx.fillStyle = snapshot.regression
-        ? `hsl(${220 - Math.max(0, Math.min(1, (row.y + 5) / 10)) * 180} 80% 66%)`
-        : classColor(label);
+  // Hidden point sets are removed from both painting and hit targets. A tutorial
+  // click cannot select an invisible sample, and the original dataset is untouched.
+  const points = showPoints
+    ? rows
+        .map((row, index) => ({
+          row,
+          index,
+          p: project(row.x),
+          depth: three ? depth(row.x) : 0,
+        }))
+        .filter(
+          ({ row, index }) =>
+            snapshot.regression ||
+            !hiddenPointSets.includes(
+              snapshot.clustering && snapshot.fitted
+                ? (predictions[index] ?? -1)
+                : row.y,
+            ),
+        )
+    : [];
+  const pointColor = (row: (typeof rows)[number], index: number) =>
+    snapshot.regression
+      ? `hsl(${220 - Math.max(0, Math.min(1, (row.y + 5) / 10)) * 180} 80% 66%)`
+      : classColor(
+          snapshot.clustering && snapshot.fitted
+            ? (predictions[index] ?? -1)
+            : row.y,
+        );
+  const gpu =
+    three &&
+    renderSpatialScene(
+      ctx,
+      w,
+      h,
+      paintedFaces,
+      points.map((point) => ({
+        position: point.p,
+        depth: point.depth,
+        color: pointColor(point.row, point.index),
+        selected: point.index === selected,
+      })),
+    );
+  if (three && !gpu) {
+    // Preserve a functional fallback when the browser cannot create a GPU context.
+    for (const face of paintedFaces) {
       ctx.beginPath();
-      ctx.arc(...p, index === selected ? 6 : 3.5, 0, Math.PI * 2);
+      ctx.moveTo(...face.vertices[0]);
+      for (const point of face.vertices.slice(1)) ctx.lineTo(...point);
+      ctx.closePath();
+      ctx.fillStyle = face.color;
+      ctx.globalAlpha = face.opacity;
       ctx.fill();
-      if (index === selected) {
-        ctx.strokeStyle = "#fff";
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(...p, 9, 0, Math.PI * 2);
+      if (face.outline) {
+        ctx.strokeStyle = face.color;
+        ctx.globalAlpha = Math.min(1, face.opacity * 2.5);
         ctx.stroke();
       }
+    }
+    ctx.globalAlpha = 1;
+  }
+  const hitTargets: { index: number; x: number; y: number }[] = [];
+  points
+    .sort((a, b) => a.depth - b.depth)
+    .forEach(({ row, index, p, depth: pointDepth }) => {
+      const layering = occlusion?.prepare(
+        p[0],
+        p[1],
+        pointDepth,
+        index === selected ? 10 : 3.5,
+      );
+      if (layering?.fullyHidden) return;
+      if (!gpu) {
+        ctx.fillStyle = pointColor(row, index);
+        ctx.beginPath();
+        ctx.arc(...p, index === selected ? 6 : 3.5, 0, Math.PI * 2);
+        ctx.fill();
+        if (index === selected) {
+          ctx.strokeStyle = "#fff";
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(...p, 9, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+        layering?.composite(ctx, index === selected);
+      }
+      if (layering?.visible ?? true)
+        hitTargets.push({ index, x: p[0], y: p[1] });
     });
   centers.forEach((center, i: number) => {
     const [x, y] = project(center);
@@ -369,7 +474,7 @@ export function drawScatter(
     ctx.lineTo(x, y + 7);
     ctx.stroke();
   });
-  return points.map(({ index, p }) => ({ index, x: p[0], y: p[1] }));
+  return hitTargets;
 }
 
 /** Draw one connection per weight, with sign encoded by color and magnitude by thickness. */

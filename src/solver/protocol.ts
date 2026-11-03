@@ -10,7 +10,10 @@ import type {
   Matrix,
   Vector,
 } from "../types.ts";
-import type { DecisionFace } from "../engine/decisionSurfaces.ts";
+import type {
+  ClassificationRegion,
+  DecisionFace,
+} from "../engine/decisionSurfaces.ts";
 
 /**
  * The worker owns the mutable engine. Only serializable commands and read-only
@@ -27,6 +30,7 @@ export type SolverCommand =
   | { type: "run" | "pause" | "step"; controlId: number }
   | { type: "page"; page: PageId }
   | { type: "inspect"; index: number }
+  | { type: "regions"; enabled: boolean }
   | { type: "predict"; requestId: number; input: Vector }
   | { type: "ack"; frameId: number };
 
@@ -38,6 +42,9 @@ export interface PredictionGrid {
   three: boolean;
   /** Connected class boundaries for 3D; cells are only used for the 2D background. */
   surfaces: DecisionFace[];
+  /** Class-colored closed volumes are generated only when the view requests them. */
+  regions: ClassificationRegion[];
+  regionsRequested: boolean;
 }
 
 export interface SolverFrame {

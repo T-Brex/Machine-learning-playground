@@ -19,6 +19,7 @@ interface Gesture {
 }
 import type { PointerEvent } from "react";
 import { useEffect, useRef, useState } from "react";
+import { releaseSpatialRenderer } from "../engine/spatialRenderer.ts";
 import type { ChartPoint, ChartView } from "../types.ts";
 
 const INITIAL_VIEW = { zoom: 1, panX: 0, panY: 0, yaw: -0.65, pitch: 0.45 };
@@ -64,7 +65,11 @@ export default function CanvasChart({
       }),
     );
     observer.observe(canvas);
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      const context = canvas.getContext("2d");
+      if (context) releaseSpatialRenderer(context);
+    };
   }, []);
   useEffect(() => {
     const canvas = ref.current,

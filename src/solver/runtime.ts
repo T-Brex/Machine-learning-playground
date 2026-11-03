@@ -1,7 +1,10 @@
 import { NEURAL_METHODS } from "../data/catalog.ts";
 import { parameterRows } from "../engine/modelParameters.ts";
 import { createEngine } from "../engine/createEngine.ts";
-import { buildDecisionSurfaces } from "../engine/decisionSurfaces.ts";
+import {
+  buildClassificationRegions,
+  buildDecisionSurfaces,
+} from "../engine/decisionSurfaces.ts";
 import type { Configuration, Dataset, PageId } from "../types.ts";
 import type {
   PredictionGrid,
@@ -55,6 +58,7 @@ export function createSolverRuntime(
     timer: unknown = null,
     lastFrameAt = -Infinity;
   let selected = 0;
+  let regionInterest = false;
   let diagnostics: SolverFrame["diagnostics"] = null;
   let diagnosticsIteration: number | null = null;
   let rowIndices = new Map<Dataset["data"][number], number>();
@@ -77,19 +81,26 @@ export function createSolverRuntime(
     if (three) {
       const snapshot = engine.snapshot(),
         kind = snapshot.model?.kind;
+      const field = {
+        predict: engine.predict,
+        scores: engine.decisionScores,
+        linear:
+          kind === "logistic" || kind === "softmax" || kind === "perceptron",
+        regression: snapshot.regression,
+        clustering: snapshot.clustering,
+        resolution: running ? 10 : 18,
+      };
+      const surfaces = buildDecisionSurfaces(dataset, field);
       return {
         cells: [],
         stepX: 0,
         stepY: 0,
         three: true,
-        surfaces: buildDecisionSurfaces(dataset, {
-          predict: engine.predict,
-          scores: engine.decisionScores,
-          linear:
-            kind === "logistic" || kind === "softmax" || kind === "perceptron",
-          regression: snapshot.regression,
-          clustering: snapshot.clustering,
-        }),
+        surfaces,
+        regions: regionInterest
+          ? buildClassificationRegions(dataset, field, surfaces)
+          : [],
+        regionsRequested: regionInterest,
       };
     }
     const min = [0, 1, 2].map(
@@ -117,7 +128,15 @@ export function createSolverRuntime(
         input[1] = min[1] + y * stepY;
         cells.push({ input, value: engine.predict(input) });
       }
-    return { cells, stepX, stepY, three, surfaces: [] };
+    return {
+      cells,
+      stepX,
+      stepY,
+      three,
+      surfaces: [],
+      regions: [],
+      regionsRequested: false,
+    };
   }
 
   function publish() {
@@ -254,6 +273,13 @@ export function createSolverRuntime(
         selected = command.index;
         dirty = true;
         schedule();
+        break;
+      case "regions":
+        if (regionInterest !== command.enabled) {
+          regionInterest = command.enabled;
+          dirty = true;
+          schedule();
+        }
         break;
       case "predict":
         send({

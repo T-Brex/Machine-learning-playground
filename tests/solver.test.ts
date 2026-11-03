@@ -5,7 +5,7 @@ import { defaultParameters } from "../src/data/methods.ts";
 import { createSolverRuntime } from "../src/solver/runtime.ts";
 import type { SolverScheduler } from "../src/solver/runtime.ts";
 import type { SolverEvent, SolverFrame } from "../src/solver/protocol.ts";
-import type { Configuration } from "../src/types.ts";
+import type { Configuration, PageId } from "../src/types.ts";
 
 /** Virtual time tests the protocol rather than relying on CPU-dependent sleeps. */
 class Scheduler implements SolverScheduler {
@@ -32,7 +32,7 @@ class Scheduler implements SolverScheduler {
     return true;
   }
 }
-function setup(epochs = 2000) {
+function setup(epochs = 2000, featureCount = 2, page: PageId = "train") {
   const scheduler = new Scheduler(),
     events: SolverEvent[] = [];
   // Real worker postMessage clones synchronously. Emulate that ownership boundary
@@ -45,7 +45,7 @@ function setup(epochs = 2000) {
     task: "classification",
     method: "logistic",
     dataset: "linear",
-    featureCount: 2,
+    featureCount,
     sampleCount: 40,
     classCount: 2,
     noise: 0.2,
@@ -57,7 +57,7 @@ function setup(epochs = 2000) {
     type: "initialize",
     dataset: generateDataset(config),
     config,
-    page: "train",
+    page,
   });
   const frames = () =>
     events
@@ -158,4 +158,30 @@ test("dispose cancels scheduled work and rejects subsequent commands", () => {
   assert.equal(scheduler.next(), false);
   runtime.handle({ type: "step", controlId: 2 });
   assert.equal(frames().length, 1);
+});
+
+test("classified volumes are calculated only on request and leave the learned model unchanged", () => {
+  const { runtime, scheduler, frames } = setup(12, 3, "home");
+  runtime.handle({ type: "ack", frameId: frames()[0].frameId });
+  runtime.handle({ type: "step", controlId: 1 });
+  scheduler.next();
+  const before = frames().at(-1)!;
+  assert.equal(before.plot?.regionsRequested, false);
+  assert.deepEqual(before.plot?.regions, []);
+  runtime.handle({ type: "ack", frameId: before.frameId });
+  runtime.handle({ type: "regions", enabled: true });
+  scheduler.next();
+  const enabled = frames().at(-1)!;
+  assert.equal(enabled.plot?.regionsRequested, true);
+  assert.ok(enabled.plot!.regions.length > 0);
+  assert.equal(enabled.snapshot.iteration, before.snapshot.iteration);
+  assert.deepEqual(enabled.predictions, before.predictions);
+  runtime.handle({ type: "ack", frameId: enabled.frameId });
+  runtime.handle({ type: "regions", enabled: false });
+  scheduler.next();
+  const disabled = frames().at(-1)!;
+  assert.equal(disabled.plot?.regionsRequested, false);
+  assert.deepEqual(disabled.plot?.regions, []);
+  assert.equal(disabled.snapshot.iteration, before.snapshot.iteration);
+  runtime.dispose();
 });

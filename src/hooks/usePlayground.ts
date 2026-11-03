@@ -149,6 +149,7 @@ export function usePlayground(page: PageId) {
     diagnosticsIteration: frame.diagnosticsIteration,
     predict: solver.predict,
     inspect: solver.inspect,
+    requestRegions: solver.requestRegions,
     error: error || solver.error,
     update,
     selectTask,

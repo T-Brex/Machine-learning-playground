@@ -28,6 +28,7 @@ src/
   main.tsx                      React entry point
   types.ts                      Shared configuration, model, snapshot, and chart contracts
   components/                   Dataset, model, training, chart, tutorial, and result views
+    DataChart.tsx               Independent boundary, point-group, and classified-space controls
   hooks/usePlayground.ts         Experiment state, CSV loading, timer lifecycle, pause/resume
   hooks/useSolver.ts             Worker lifecycle, commands, asynchronous predictions, frame commits
   data/
@@ -45,6 +46,8 @@ src/
     learningInspection.ts       Numerical tutorial traces and visualization descriptions
     charts.ts                   Canvas drawing functions, with explicit data inputs
     decisionSurfaces.ts         Clipped linear hyperplanes and nonlinear boundary meshes
+    spatialRenderer.ts          GPU mesh/point rendering with transparency and depth testing
+    sceneOcclusion.ts           Visible-point hit testing and a no-GPU rendering fallback
   styles/                       Shared appearance and responsive component layouts
   solver/
     solver.worker.ts            Separate browser worker entry point
@@ -56,6 +59,7 @@ tests/
   browser/playground.spec.ts    End-to-end user workflow
   browser/responsiveness.spec.ts Large-fit navigation, chart zoom, animation, and reset coverage
   browser/decisionSurfaces.spec.ts 3D boundary geometry, rotation, and visibility controls
+  browser/occlusion.spec.ts     Pixel checks for opaque/transparent occlusion and seamless meshes
 ```
 
 React owns the UI and settings. `usePlayground` delegates numerical work to `useSolver`, which creates a dedicated Web Worker per experiment. Settings changes, reset, and unmount terminate the old worker, including an expensive epoch already in progress. Pause preserves its model and optimizer state at an epoch boundary. The engine has no DOM or React dependency, so algorithms can still be tested directly in Node.
@@ -63,6 +67,10 @@ React owns the UI and settings. `usePlayground` delegates numerical work to `use
 Training, prediction-grid sampling, tutorial calculations, and neural diagnostics run in the worker. Canvas components only project cached results and draw pixels, so dragging or zooming does not trigger synchronous inference. Display frames are capped at eight per second, with at most one frame awaiting a React commit; training continues independently without queuing obsolete renders. Models, forests, and training caches remain in the worker. Messages contain metrics, sampled surfaces, row predictions, and a bounded parameter table.
 
 The 3D classification view shows learned decision boundaries. Linear classifiers use exact pairwise score-equality hyperplanes, clipped to the visible feature-space box and to regions where those classes beat all competitors. Nonlinear models use marching-tetrahedra boundary meshes. Features beyond the first three are held at their dataset means to form a cross-section of the original model. Boundary-pair controls hide individual surfaces; rotation and zoom reproject cached geometry without invoking the solver.
+
+Each boundary has its own 0–100% opacity slider. Point-group controls hide classes or clusters independently of the boundaries and training data. Enable **Spazio classificato** to highlight occupied class volumes, then isolate classes or adjust the region opacity. Linear regions are exact clipped polyhedra; nonlinear regions use a sampled volume envelope, with internal same-class voxel faces removed. The worker calculates these volumes only while the view requests them.
+
+The 3D layer uses GPU depth testing: opaque surfaces hide rear points, front points remain visible, and translucent surfaces blend over the correct point fragments. Mesh triangles share rasterized edges instead of being antialiased separately by Canvas, eliminating the visible triangle seams. Curved boundaries refine after pause/completion. Point hit testing follows visibility, and GPU allocations are released when a chart unmounts.
 
 Live loss histories and network activations update during training. Exact neural loss surfaces and detailed gradient tables refresh on pause, single-step, or completion, since evaluating those surfaces requires hundreds of full-batch gradients. Their last computed iteration is identified while training. Canvas observers/listeners and worker resources are released on unmount.
 

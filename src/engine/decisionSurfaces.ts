@@ -7,6 +7,12 @@ export interface DecisionFace {
   /** The adjacent class IDs drive visibility toggles and the boundary's color. */
   classes: number[];
 }
+/** Closed boundary of a classified volume; its color is the predicted class ID. */
+export interface ClassificationRegion {
+  label: number;
+  faces: Point3[][];
+  approximate: boolean;
+}
 export interface SurfaceField {
   predict(input: Vector): number;
   /** Scores must preserve argmax decisions; raw logits/log-likelihoods work well. */
@@ -14,6 +20,8 @@ export interface SurfaceField {
   linear: boolean;
   regression: boolean;
   clustering: boolean;
+  /** Refine curved geometry after pause/completion without increasing live-fit cost. */
+  resolution?: number;
 }
 
 const EPS = 1e-8;
@@ -116,16 +124,9 @@ function linearFaces(
   base: Vector,
   scores: NonNullable<SurfaceField["scores"]>,
 ): DecisionFace[] {
-  const origin = scores(base);
-  if (!origin || origin.length < 2) return [];
-  const weights: Point3[] = origin.map(() => [0, 0, 0]);
-  for (let axis = 0; axis < 3; axis++) {
-    const input = base.slice();
-    input[axis] = 1;
-    const values = scores(input);
-    if (!values) return [];
-    origin.forEach((value, c) => (weights[c][axis] = values[c] - value));
-  }
+  const affine = affineScores(base, scores);
+  if (!affine) return [];
+  const { origin, weights } = affine;
   const corners: Point3[] = Array.from({ length: 8 }, (_, i) => [
     i & 1 ? max[0] : min[0],
     i & 2 ? max[1] : min[1],
@@ -166,6 +167,21 @@ function linearFaces(
   return faces;
 }
 
+/** The same affine score field defines both separating planes and class volumes. */
+function affineScores(base: Vector, scores: SurfaceField["scores"]) {
+  const origin = scores(base);
+  if (!origin || origin.length < 2) return null;
+  const weights: Point3[] = origin.map(() => [0, 0, 0]);
+  for (let axis = 0; axis < 3; axis++) {
+    const input = base.slice();
+    input[axis] = 1;
+    const values = scores(input);
+    if (!values) return null;
+    origin.forEach((value, c) => (weights[c][axis] = values[c] - value));
+  }
+  return { origin, weights };
+}
+
 /**
  * Extract zero sets with marching tetrahedra for curved/discontinuous models.
  * All cubes use the same six-tetrahedron split, so neighboring cells share the
@@ -181,7 +197,10 @@ function sampledFaces(
   classes: number,
   level: number,
 ): DecisionFace[] {
-  const resolution = 10,
+  const resolution = Math.max(
+      4,
+      Math.min(24, Math.round(field.resolution ?? 10)),
+    ),
     stride = resolution + 1,
     faces: DecisionFace[] = [];
   const nodes: { point: Point3; values: Vector }[] = [];
@@ -274,7 +293,23 @@ function sampledFaces(
               });
           }
       }
-  return faces;
+  // Adjacent class margins can describe the very same triangle with reversed
+  // winding. Render that boundary once: duplicate coplanar faces otherwise
+  // over-blend when translucent and can z-fight at full opacity.
+  const uniqueFaces = new Map<string, DecisionFace>();
+  for (const face of faces) {
+    const key = face.vertices
+      .map((point) => point.map((value) => value.toFixed(8)).join(","))
+      .sort()
+      .join(";");
+    const existing = uniqueFaces.get(key);
+    if (existing)
+      existing.classes = [
+        ...new Set([...existing.classes, ...face.classes]),
+      ].sort((a, b) => a - b);
+    else uniqueFaces.set(key, face);
+  }
+  return [...uniqueFaces.values()];
 }
 
 /**
@@ -305,4 +340,149 @@ export function buildDecisionSurfaces(
       ? targets[middle]
       : (targets[middle - 1] + targets[middle]) / 2;
   return sampledFaces(min, max, base, field, dataset.classes, median);
+}
+
+/**
+ * Build the occupied 3D space of each class, rather than coloring just a few
+ * horizontal slices. For affine classifiers, clip the six box walls by every
+ * winning-score inequality and close each polyhedron with its decision faces.
+ * This gives exact convex class volumes within the displayed feature domain.
+ *
+ * For nonlinear models, classify a bounded 10^3 voxel grid and retain only faces
+ * adjacent to a different class or the outside of the box. Removing internal
+ * same-class faces avoids thousands of redundant translucent layers, which would
+ * incorrectly turn a low opacity into an opaque block. This approximation is
+ * generated on demand in the worker, never while dragging a camera or slider.
+ */
+export function buildClassificationRegions(
+  dataset: Dataset,
+  field: SurfaceField,
+  boundaries: DecisionFace[],
+): ClassificationRegion[] {
+  const dimensions = dataset.data[0]?.x.length || 0;
+  if (dimensions < 3 || field.regression || field.clustering) return [];
+  const [min, max] = spatialDomain(dataset);
+  const base = Array.from({ length: dimensions }, (_, i) =>
+    i < 3
+      ? 0
+      : dataset.data.reduce((sum, row) => sum + row.x[i], 0) /
+        dataset.data.length,
+  );
+  if (field.linear) {
+    const affine = affineScores(base, field.scores);
+    if (!affine) return [];
+    const { origin, weights } = affine;
+    const box: Point3[][] = [];
+    for (let axis = 0; axis < 3; axis++)
+      for (const side of [0, 1]) {
+        const other = [0, 1, 2].filter((i) => i !== axis),
+          points: Point3[] = [],
+          normal: Point3 = [0, 0, 0];
+        normal[axis] = side ? 1 : -1;
+        for (let bits = 0; bits < 4; bits++) {
+          const point: Point3 = [0, 0, 0];
+          point[axis] = side ? max[axis] : min[axis];
+          other.forEach(
+            (i, j) => (point[i] = bits & (1 << j) ? max[i] : min[i]),
+          );
+          points.push(point);
+        }
+        box.push(orderFace(points, normal));
+      }
+    const regions: ClassificationRegion[] = [];
+    for (let label = 0; label < origin.length; label++) {
+      const faces = boundaries
+        .filter((face) => face.classes.includes(label))
+        .map((face) =>
+          face.classes[0] === label
+            ? face.vertices.slice().reverse()
+            : face.vertices.slice(),
+        );
+      for (const wall of box) {
+        let face = wall.slice();
+        for (
+          let other = 0;
+          other < origin.length && face.length >= 3;
+          other++
+        ) {
+          if (other === label) continue;
+          const direction = subtract(weights[label], weights[other]);
+          face = clip(
+            face,
+            (point) => dot(direction, point) + origin[label] - origin[other],
+          );
+        }
+        if (face.length >= 3) faces.push(face);
+      }
+      if (!faces.length) continue;
+      // A class with identical scores or zero volume must not paint the entire
+      // box on top of another class. The convex interior follows actual tie-breaking.
+      const vertices = faces.flat(),
+        center = base.slice();
+      for (let i = 0; i < 3; i++)
+        center[i] =
+          vertices.reduce((sum, p) => sum + p[i], 0) / vertices.length;
+      if (field.predict(center) === label)
+        regions.push({ label, faces, approximate: false });
+    }
+    return regions;
+  }
+  const resolution = 10,
+    labels: number[] = [],
+    regions = new Map<number, ClassificationRegion>();
+  const step: Point3 = min.map(
+    (value, i) => (max[i] - value) / resolution,
+  ) as Point3;
+  const index = (x: number, y: number, z: number) =>
+    x + resolution * y + resolution * resolution * z;
+  for (let z = 0; z < resolution; z++)
+    for (let y = 0; y < resolution; y++)
+      for (let x = 0; x < resolution; x++) {
+        const input = base.slice();
+        [x, y, z].forEach(
+          (value, i) => (input[i] = min[i] + (value + 0.5) * step[i]),
+        );
+        labels.push(field.predict(input));
+      }
+  for (let z = 0; z < resolution; z++)
+    for (let y = 0; y < resolution; y++)
+      for (let x = 0; x < resolution; x++) {
+        const cell = [x, y, z],
+          label = labels[index(x, y, z)];
+        if (label < 0) continue;
+        let region = regions.get(label);
+        if (!region) {
+          region = { label, faces: [], approximate: true };
+          regions.set(label, region);
+        }
+        for (let axis = 0; axis < 3; axis++)
+          for (const side of [0, 1]) {
+            const neighbor = cell.slice();
+            neighbor[axis] += side ? 1 : -1;
+            const within = neighbor.every(
+              (value) => value >= 0 && value < resolution,
+            );
+            if (
+              within &&
+              labels[index(neighbor[0], neighbor[1], neighbor[2])] === label
+            )
+              continue;
+            const other = [0, 1, 2].filter((i) => i !== axis),
+              points: Point3[] = [],
+              normal: Point3 = [0, 0, 0];
+            normal[axis] = side ? 1 : -1;
+            for (let bits = 0; bits < 4; bits++) {
+              const point: Point3 = [0, 0, 0];
+              point[axis] = min[axis] + (cell[axis] + side) * step[axis];
+              other.forEach(
+                (i, j) =>
+                  (point[i] =
+                    min[i] + (cell[i] + (bits & (1 << j) ? 1 : 0)) * step[i]),
+              );
+              points.push(point);
+            }
+            region.faces.push(orderFace(points, normal));
+          }
+      }
+  return [...regions.values()];
 }

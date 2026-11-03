@@ -59,6 +59,25 @@ test("3D multiclass graphs draw separating hyperplanes that can be rotated and h
       return result;
     });
   await canvas.screenshot({ path: "test-results/decision-hyperplanes.png" });
+  const opacity = page.getByRole("slider", { name: /Opacità confine/ }).first();
+  const otherOpacity = page
+    .getByRole("slider", { name: /Opacità confine/ })
+    .nth(1);
+  const originalOpacityImage = await hash();
+  await opacity.focus();
+  await opacity.press("Home");
+  await expect(opacity).toHaveValue("0");
+  await expect(otherOpacity).toHaveValue("26");
+  await expect.poll(hash).not.toBe(originalOpacityImage);
+  await opacity.press("End");
+  await expect(opacity).toHaveValue("100");
+  for (const slider of await page
+    .getByRole("slider", { name: /Opacità confine/ })
+    .all()) {
+    await slider.focus();
+    await slider.press("End");
+  }
+  await canvas.screenshot({ path: "test-results/opaque-hyperplanes.png" });
   const initial = await hash(),
     box = await canvas.boundingBox();
   expect(box).not.toBeNull();
@@ -74,6 +93,44 @@ test("3D multiclass graphs draw separating hyperplanes that can be rotated and h
   const rotated = await hash();
   for (const checkbox of await controls.all()) await checkbox.uncheck();
   await expect.poll(hash).not.toBe(rotated);
+  const pointsImage = await hash();
+  await page
+    .getByRole("checkbox", { name: "Mostra punti classe 1", exact: true })
+    .uncheck();
+  await expect.poll(hash).not.toBe(pointsImage);
+  await page
+    .getByRole("checkbox", { name: "Mostra tutti i punti", exact: true })
+    .uncheck();
+  const noPoints = await hash();
+  await page
+    .getByRole("checkbox", {
+      name: "Evidenzia spazio classificato",
+      exact: true,
+    })
+    .check();
+  await expect(page.locator(".region-controls")).toHaveAttribute(
+    "aria-busy",
+    "false",
+  );
+  await expect.poll(hash).not.toBe(noPoints);
+  const space = await page.evaluate(
+    () =>
+      (window as typeof window & { __surfacePlot?: PredictionGrid })
+        .__surfacePlot,
+  );
+  expect(space?.regionsRequested).toBe(true);
+  expect(space?.regions.length).toBe(3);
+  expect(
+    space?.regions.every(
+      (region) => !region.approximate && region.faces.length >= 4,
+    ),
+  ).toBe(true);
+  await canvas.screenshot({ path: "test-results/classification-space.png" });
+  const allRegions = await hash();
+  await page
+    .getByRole("checkbox", { name: "Mostra spazio classe 2", exact: true })
+    .uncheck();
+  await expect.poll(hash).not.toBe(allRegions);
   await page.locator("#reset").click();
   await expect(controls).toHaveCount(0);
 });

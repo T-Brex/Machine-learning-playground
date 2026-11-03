@@ -93,6 +93,64 @@ summary {
   padding: 2px 8px;
   font-size: 12px;
 }
+
+/* View-layer controls operate on cached geometry and never change the fit. */
+.graph-control-group {
+  min-width: 0;
+  margin: 10px 0;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+}
+.graph-control-group legend {
+  padding: 0 5px;
+  font-size: 12px;
+  color: #bcd6f3;
+  font-weight: 600;
+}
+.graph-control-group .surface-controls {
+  display: grid;
+  gap: 7px;
+}
+.boundary-control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(110px, 0.9fr);
+  gap: 10px;
+  align-items: center;
+}
+.graph-opacity-control {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin: 0;
+  font-size: 11px;
+  color: var(--muted);
+}
+.graph-opacity-control input {
+  width: 100%;
+  margin: 0;
+}
+.graph-layer-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 7px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.graph-layer-toggle input {
+  width: auto;
+  margin: 0;
+  accent-color: var(--blue);
+}
+.point-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.region-opacity {
+  margin: 8px 0;
+}
 button:focus-visible,
 input:focus-visible,
 select:focus-visible,

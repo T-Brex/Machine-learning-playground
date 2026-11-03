@@ -170,6 +170,13 @@ export function useSolver(
       index,
     } satisfies SolverCommand);
   }, []);
+  /** View interest changes do not reset the fit or alter training configuration. */
+  const requestRegions = useCallback((enabled: boolean) => {
+    session.current?.worker.postMessage({
+      type: "regions",
+      enabled,
+    } satisfies SolverCommand);
+  }, []);
   const predict = useCallback((input: Vector): Promise<number | null> => {
     const current = session.current;
     if (!current) return Promise.resolve(null);
@@ -199,6 +206,7 @@ export function useSolver(
     ...visibleControl,
     cancel,
     inspect,
+    requestRegions,
     predict,
     train: () => sendControl("run"),
     pause: () => sendControl("pause"),
