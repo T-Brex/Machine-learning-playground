@@ -1,12 +1,20 @@
 import { useState } from "react";
-import { Panel, Field, format } from "./Panel.jsx";
-import { METHOD_LABELS } from "../data/catalog.js";
+import { METHOD_LABELS } from "../data/catalog.ts";
+import type { Model, PlaygroundProps } from "../types.ts";
+import { Field, format, Panel } from "./Panel.tsx";
 
-/** Recursive rows preserve matrices/trees without special-casing every model family. */
-/** Flatten inspectable model values into table rows, with limits for large matrices and trees. */
-function parameterRows(model) {
-  const rows = [];
-  function visit(value, path, depth = 0) {
+/**
+ * Walk a model as unknown data and collect a bounded parameter table.
+ *
+ * A discriminated model is strongly typed at the engine boundary, but this generic
+ * presentation intentionally discovers nested numbers without coupling the table
+ * to every family. Narrow unknown values before descending into arrays/objects.
+ * Skip training rows, kernel caches, and optimizer bookkeeping because displaying
+ * them would overwhelm the learned parameters. Depth and row limits bound work.
+ */
+function parameterRows(model: Model | null): [string, number][] {
+  const rows: [string, number][] = [];
+  function visit(value: unknown, path: string, depth = 0): void {
     if (rows.length >= 200 || depth > 5) return;
     if (typeof value === "number") rows.push([path, value]);
     else if (Array.isArray(value))
@@ -34,7 +42,7 @@ function parameterRows(model) {
   return rows;
 }
 /** Show learned numerical state for any model family using a bounded recursive table. */
-export function WeightsPanel({ playground: p }) {
+export function WeightsPanel({ playground: p }: PlaygroundProps) {
   const rows = parameterRows(p.snapshot.model);
   return (
     <Panel title="Parametri del modello">
@@ -71,7 +79,14 @@ export function WeightsPanel({ playground: p }) {
   );
 }
 /** Render source rows and live model predictions; optional selection links a table to a chart. */
-export function SamplesPanel({ playground: p, selected, onSelect }) {
+export function SamplesPanel({
+  playground: p,
+  selected,
+  onSelect,
+}: PlaygroundProps & {
+  selected?: number;
+  onSelect?: (index: number) => void;
+}) {
   const dimensions = p.dataset.data[0]?.x.length || 2;
   return (
     <Panel title="Campioni del dataset">
@@ -120,10 +135,20 @@ export function SamplesPanel({ playground: p, selected, onSelect }) {
     </Panel>
   );
 }
-/** Keep exploratory inputs local so changing a prediction never resets the trained model. */
-export function PredictionPanel({ playground: p }) {
+/**
+ * Keep exploratory inputs separate from the trained experiment configuration.
+ *
+ * Changing an input recomputes a prediction using the existing learned model; it
+ * must not reset training, reshuffle validation rows, or alter hyperparameters.
+ * Classification displays both its internal class index and, for imported data,
+ * the original numeric label retained by the CSV parser.
+ */
+export function PredictionPanel({ playground: p }: PlaygroundProps) {
   const dimensions = p.dataset.data[0]?.x.length || 2;
-  const [values, setValues] = useState({ 0: 0.8, 1: 0.5 });
+  const [values, setValues] = useState<Record<number, string | number>>({
+    0: 0.8,
+    1: 0.5,
+  });
   const x = Array.from(
     { length: dimensions },
     (_, i) => Number(values[i]) || 0,

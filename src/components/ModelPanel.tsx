@@ -1,9 +1,10 @@
 /** Render the parameter schema for the selected algorithm, with accessible labels for every input. */
-import { METHOD_LABELS, TASKS, NEURAL_METHODS } from "../data/catalog.js";
-import { PARAMS } from "../data/methods.js";
-import { Field, Panel } from "./Panel.jsx";
+import { METHOD_LABELS, NEURAL_METHODS, TASKS } from "../data/catalog.ts";
+import { PARAMS } from "../data/methods.ts";
+import type { MethodId, PlaygroundProps } from "../types.ts";
+import { Field, Panel } from "./Panel.tsx";
 
-export default function ModelPanel({ playground: p }) {
+export default function ModelPanel({ playground: p }: PlaygroundProps) {
   const { config: c, snapshot: s } = p;
   return (
     <Panel title="Configurazione modello">
@@ -11,7 +12,7 @@ export default function ModelPanel({ playground: p }) {
         <select
           id="algorithm"
           value={c.method}
-          onChange={(e) => p.selectMethod(e.target.value)}
+          onChange={(e) => p.selectMethod(e.target.value as MethodId)}
         >
           {TASKS[c.task].methods.map((id) => (
             <option
@@ -35,7 +36,7 @@ export default function ModelPanel({ playground: p }) {
             {type.startsWith("select:") ? (
               <select
                 id={`methodParam_${key}`}
-                value={c.parameters[key]}
+                value={String(c.parameters[key])}
                 onChange={(e) => p.parameter(key, e.target.value)}
               >
                 {type
@@ -50,7 +51,7 @@ export default function ModelPanel({ playground: p }) {
                 id={`methodParam_${key}`}
                 type="number"
                 step="any"
-                value={c.parameters[key]}
+                value={String(c.parameters[key])}
                 onChange={(e) => p.parameter(key, e.target.value)}
               />
             )}
@@ -62,7 +63,11 @@ export default function ModelPanel({ playground: p }) {
           <select
             id="nnOutput"
             value={c.nnOutput}
-            onChange={(e) => p.update({ nnOutput: e.target.value })}
+            onChange={(e) =>
+              p.update({
+                nnOutput: e.target.value as "auto" | "binary" | "softmax",
+              })
+            }
           >
             <option value="auto">Automatico dal dataset</option>
             <option value="binary">Sigmoid · binario</option>

@@ -1,13 +1,25 @@
-﻿import test from "node:test";
 import assert from "node:assert/strict";
-import { createEngine } from "../src/engine/createEngine.js";
-import { generateDataset } from "../src/data/datasets.js";
-import { defaultParameters, PARAMS } from "../src/data/methods.js";
-import { TASKS } from "../src/data/catalog.js";
-import { parseCsv } from "../src/data/csv.js";
+import test from "node:test";
+import { TASKS } from "../src/data/catalog.ts";
+import { parseCsv } from "../src/data/csv.ts";
+import { generateDataset } from "../src/data/datasets.ts";
+import { defaultParameters, PARAMS } from "../src/data/methods.ts";
+import { createEngine } from "../src/engine/createEngine.ts";
+import { modelOfKind } from "../src/engine/modelGuards.ts";
+import type {
+  Configuration,
+  DatasetId,
+  MethodId,
+  Parameters,
+} from "../src/types.ts";
 
-function settings(method, dataset = "linear", extra = {}) {
+function settings(
+  method: MethodId,
+  dataset: DatasetId = "linear",
+  extra: Parameters = {},
+): Configuration {
   return {
+    task: dataset.startsWith("regression") ? "regression" : "classification",
     method,
     dataset,
     noise: 0.15,
@@ -26,7 +38,7 @@ function settings(method, dataset = "linear", extra = {}) {
   };
 }
 // Exercise every advertised algorithm, including explanations before fitting.
-for (const method of Object.keys(PARAMS)) {
+for (const method of Object.keys(PARAMS) as MethodId[]) {
   test(`${method}: train, predict, evaluate and explain`, () => {
     const kind =
       TASKS.regression.methods.includes(method) &&
@@ -78,6 +90,17 @@ test("multiclass logistic is blocked; softmax accepts the same data", () => {
   config.parameters = defaultParameters("softmax");
   assert.equal(createEngine(data, config).step().iteration, 1);
 });
+
+// Runtime narrowing protects integrations that supply data outside TypeScript.
+// The successful branch also proves the generic helper exposes classifier fields.
+test("model narrowing accepts matching families and rejects mismatched ones", () => {
+  const config = settings("logistic");
+  const engine = createEngine(generateDataset(config), config);
+  engine.step();
+  const classifier = modelOfKind(engine.snapshot().model, "logistic");
+  assert.equal(classifier.w.length, 2);
+  assert.throws(() => modelOfKind(classifier, "mlp"), /Expected a mlp model/);
+});
 test("CSV preserves regression targets and maps categorical numeric targets", () => {
   const csv = "x1;x2;y\n0;1;10\n1;2;20\n2;3;10\n3;4;20";
   const regression = parseCsv(csv, true),
@@ -91,7 +114,7 @@ test("CSV preserves regression targets and maps categorical numeric targets", ()
 });
 
 // The same nonlinear model families must handle continuous targets as well as labels.
-for (const method of ["boost", "mlp"]) {
+for (const method of ["boost", "mlp"] as MethodId[]) {
   test(`${method}: regression output remains continuous`, () => {
     const config = settings(method, "regression");
     const engine = createEngine(generateDataset(config), config);
@@ -108,6 +131,7 @@ test("neural diagnostics preserve parameters and report the current objective at
   engine.step();
   const before = structuredClone(engine.snapshot().model);
   const diagnostics = engine.neuralDiagnostics();
+  assert.ok(diagnostics);
   assert.deepEqual(engine.snapshot().model, before);
   assert.ok(
     diagnostics.parameters.every((row) => Number.isFinite(row.gradient)),

@@ -1,26 +1,27 @@
 /** Application composition: React conditionally mounts each page instead of moving DOM nodes. */
 import { useState } from "react";
-import { usePlayground } from "./hooks/usePlayground.js";
-import { TASKS, NAVIGATION } from "./data/catalog.js";
-import DatasetPanel from "./components/DatasetPanel.jsx";
-import ModelPanel from "./components/ModelPanel.jsx";
-import TrainingToolbar from "./components/TrainingToolbar.jsx";
+import DatasetPanel from "./components/DatasetPanel.tsx";
 import {
   DataChart,
-  LossCharts,
   Histogram,
+  LossCharts,
   NetworkPanel,
-} from "./components/LearningCharts.jsx";
+} from "./components/LearningCharts.tsx";
+import MethodReference from "./components/MethodReference.tsx";
+import ModelPanel from "./components/ModelPanel.tsx";
 import {
-  WeightsPanel,
-  SamplesPanel,
   PredictionPanel,
-} from "./components/ResultsPanels.jsx";
-import MethodReference from "./components/MethodReference.jsx";
-import Tutorial from "./components/Tutorial.jsx";
+  SamplesPanel,
+  WeightsPanel,
+} from "./components/ResultsPanels.tsx";
+import TrainingToolbar from "./components/TrainingToolbar.tsx";
+import Tutorial from "./components/Tutorial.tsx";
+import { NAVIGATION, TASKS } from "./data/catalog.ts";
+import { usePlayground } from "./hooks/usePlayground.ts";
+import type { PageId, TaskId } from "./types.ts";
 
 export default function App() {
-  const [page, setPage] = useState("home");
+  const [page, setPage] = useState<PageId>("home");
   const p = usePlayground();
   const settings = ["home", "data", "train", "method", "tutorial"].includes(
     page,
@@ -63,16 +64,18 @@ export default function App() {
         </aside>
         <main className="main">
           <div className="tabs" aria-label="Tipo di problema">
-            {Object.entries(TASKS).map(([id, task]) => (
-              <button
-                key={id}
-                className={p.config.task === id ? "active" : ""}
-                aria-pressed={p.config.task === id}
-                onClick={() => p.selectTask(id)}
-              >
-                {task.label}
-              </button>
-            ))}
+            {(Object.entries(TASKS) as [TaskId, (typeof TASKS)[TaskId]][]).map(
+              ([id, task]) => (
+                <button
+                  key={id}
+                  className={p.config.task === id ? "active" : ""}
+                  aria-pressed={p.config.task === id}
+                  onClick={() => p.selectTask(id)}
+                >
+                  {task.label}
+                </button>
+              ),
+            )}
           </div>
           <TrainingToolbar playground={p} />
           {settings && (

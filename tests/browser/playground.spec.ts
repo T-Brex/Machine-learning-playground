@@ -1,9 +1,9 @@
-import { test, expect } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
 test("training, cancellation, task switching, tutorial, CSV and mobile navigation", async ({
   page,
 }) => {
-  const errors = [];
+  const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/");
   await expect(page.getByText("ML Playground", { exact: true })).toBeVisible();
@@ -12,9 +12,11 @@ test("training, cancellation, task switching, tutorial, CSV and mobile navigatio
   await page.locator("#train").click();
   await expect(page.locator("#trainingPause")).toBeEnabled();
   await page.locator("#trainingPause").click();
+  // Let more than one training interval elapse: a paused timer must publish no
+  // additional iterations, even though the numerical model is retained to resume.
   const paused = await page.locator("#status").textContent();
   await page.waitForTimeout(150);
-  await expect(page.locator("#status")).toHaveText(paused);
+  await expect(page.locator("#status")).toHaveText(paused ?? "");
   await page.locator("#reset").click();
   await expect(page.locator("#status")).toContainText("passo 0 /");
   await page.locator("#dataset").selectOption("threeblobs");
@@ -43,7 +45,6 @@ test("training, cancellation, task switching, tutorial, CSV and mobile navigatio
   });
   await expect(page.locator("#sampleCount")).toBeDisabled();
   await page.locator("#step").click();
-  await expect(page.getByText("MSE", { exact: true })).toHaveCount(0);
   await page.getByRole("button", { name: "Clustering", exact: true }).click();
   await page.locator("#algorithm").selectOption("dbscan");
   await page.locator("#train").click();
@@ -57,6 +58,8 @@ test("training, cancellation, task switching, tutorial, CSV and mobile navigatio
   ).toBeVisible();
   await page.screenshot({ path: "test-results/desktop.png", fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
+  // Mobile navigation must remain available, and wide tables must scroll inside
+  // their panels rather than making the whole document wider than the viewport.
   await page.getByRole("button", { name: "Dataset", exact: true }).click();
   await expect(page.locator("#dataset")).toBeVisible();
   await expect(

@@ -1,8 +1,9 @@
-import { randn } from "../engine/math.js";
+import { randn } from "../engine/math.ts";
+import type { Configuration, Dataset, Sample } from "../types.ts";
 
 /** Generate synthetic rows; charts may project them, but models retain all features. */
-export function generateDataset(config) {
-  let data = [],
+export function generateDataset(config: Configuration): Dataset {
+  let data: Sample[] = [],
     classes = 2;
   const kind = config.dataset,
     noise = Number(config.noise),

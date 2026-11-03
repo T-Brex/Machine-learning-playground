@@ -1,5 +1,7 @@
+import type { PlaygroundProps } from "../types.ts";
+
 /** Shared run controls reflect the hook state, so every page controls the same experiment. */
-export default function TrainingToolbar({ playground: p }) {
+export default function TrainingToolbar({ playground: p }: PlaygroundProps) {
   const s = p.snapshot;
   return (
     <section className="training-toolbar" aria-label="Controlli simulazione">

@@ -1,21 +1,29 @@
 import { useMemo, useState } from "react";
-import CanvasChart from "./CanvasChart.jsx";
-import { Panel, Stat, format } from "./Panel.jsx";
+import { NEURAL_METHODS } from "../data/catalog.ts";
 import {
   COLORS,
   classColor,
-  drawScatter,
-  drawLines,
   drawHistogram,
-  drawNetwork,
+  drawLines,
   drawLossSurface,
-} from "../engine/charts.js";
-import { NEURAL_METHODS } from "../data/catalog.js";
+  drawNetwork,
+  drawScatter,
+} from "../engine/charts.ts";
+import type { PlaygroundProps } from "../types.ts";
+import CanvasChart from "./CanvasChart.tsx";
+import { Panel, Stat, format } from "./Panel.tsx";
 
 /** Keep per-class surface visibility local to this chart; prediction still uses the full model. */
 
-export function DataChart({ playground: p, selected, onSelect }) {
-  const [hiddenClasses, setHiddenClasses] = useState([]);
+export function DataChart({
+  playground: p,
+  selected,
+  onSelect,
+}: PlaygroundProps & {
+  selected?: number;
+  onSelect?: (index: number) => void;
+}) {
+  const [hiddenClasses, setHiddenClasses] = useState<number[]>([]);
   return (
     <Panel title="Dati e previsione">
       {p.dataset.data[0]?.x.length >= 3 &&
@@ -25,7 +33,7 @@ export function DataChart({ playground: p, selected, onSelect }) {
             {Array.from(
               {
                 length: p.snapshot.clustering
-                  ? p.snapshot.metrics["Numero cluster"] || 1
+                  ? Number(p.snapshot.metrics["Numero cluster"]) || 1
                   : p.dataset.classes,
               },
               (_, i) => (
@@ -75,7 +83,7 @@ export function DataChart({ playground: p, selected, onSelect }) {
   );
 }
 /** Choose the displayed validation metric from the actual task rather than the algorithm name. */
-export function LossCharts({ playground: p }) {
+export function LossCharts({ playground: p }: PlaygroundProps) {
   const s = p.snapshot,
     metric = s.regression ? "R²" : s.clustering ? "Purezza" : "Accuracy";
   return (
@@ -122,7 +130,7 @@ export function LossCharts({ playground: p }) {
   );
 }
 /** Display the same loss history used by the epoch chart as a frequency distribution. */
-export function Histogram({ playground: p }) {
+export function Histogram({ playground: p }: PlaygroundProps) {
   return (
     <Panel title="Distribuzione della loss">
       <CanvasChart
@@ -133,7 +141,7 @@ export function Histogram({ playground: p }) {
   );
 }
 /** Reuse the live engine for activations, gradients, and a loss slice; memoize the expensive slice. */
-export function NetworkPanel({ playground: p }) {
+export function NetworkPanel({ playground: p }: PlaygroundProps) {
   const diagnostics = useMemo(
     () => p.engine.neuralDiagnostics(),
     [p.engine, p.snapshot.iteration],

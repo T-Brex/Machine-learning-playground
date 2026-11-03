@@ -1,11 +1,24 @@
 import { useMemo, useState } from "react";
-import { METHOD_INFO } from "../data/methods.js";
-import { METHOD_LABELS } from "../data/catalog.js";
-import { Panel, Field, format } from "./Panel.jsx";
-import { DataChart, NetworkPanel } from "./LearningCharts.jsx";
+import { METHOD_LABELS } from "../data/catalog.ts";
+import { METHOD_INFO } from "../data/methods.ts";
+import type { PlaygroundProps } from "../types.ts";
+import { DataChart, NetworkPanel } from "./LearningCharts.tsx";
+import { Field, format, Panel } from "./Panel.tsx";
 
-/** Trace content comes from the same engine that performs the real training steps. */
-export default function Tutorial({ playground: p }) {
+/**
+ * Present numerical explanations derived from the live training state.
+ *
+ * Trace steps use the same parameters and intermediate calculations as the fitting
+ * engine. Tutorial sample indices refer to the fixed training split, while the data
+ * chart uses original dataset indices; map between them by row identity instead of
+ * assuming the shuffled arrays have matching positions. Validation-only chart points
+ * are intentionally excluded from training-sample selection.
+ *
+ * Memoize trace/visualization work by engine identity, completed iteration, and sample
+ * selection. Navigating an explanation changes presentation state, while the real-step
+ * button delegates to the shared controller and actually advances the model.
+ */
+export default function Tutorial({ playground: p }: PlaygroundProps) {
   const [position, setPosition] = useState(0),
     [query, setQuery] = useState("1"),
     [selected, setSelected] = useState(0);
@@ -28,7 +41,7 @@ export default function Tutorial({ playground: p }) {
     .map((row, index) => ({ row, index }))
     .filter(({ index }) => String(index + 1).startsWith(query))
     .slice(0, 12);
-  function choose(index) {
+  function choose(index: number) {
     setSelected(index);
     setQuery(String(index + 1));
   }

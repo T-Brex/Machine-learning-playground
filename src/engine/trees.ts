@@ -1,8 +1,10 @@
-import { classCounts, shuffleCopy } from "./math.js";
+import type { ClassTree, Sample } from "../types.ts";
+import { classCounts, shuffleCopy } from "./math.ts";
+
 /** Recursive classification tree construction, also used by forests. */
-export function createTreeAlgorithms(classes) {
+export function createTreeAlgorithms(classes: number) {
   /** Measure label mixture within a node using Gini or entropy. */
-  function impurity(rows, criterion = "gini") {
+  function impurity(rows: Sample[], criterion: string = "gini"): number {
     if (!rows.length) return 0;
     const c = classCounts(rows, Math.max(1, classes)),
       p = c.filter((x) => x > 0).map((x) => x / rows.length);
@@ -10,9 +12,31 @@ export function createTreeAlgorithms(classes) {
       ? 1 - p.reduce((s, v) => s + v * v, 0)
       : -p.reduce((s, v) => s + v * Math.log2(v), 0);
   }
-  /** Scan adjacent feature values and choose the threshold with the greatest weighted impurity reduction. */
-  function bestTreeSplit(rows, features, minLeaf, criterion) {
-    let best = null,
+  /**
+   * Choose a feature threshold by weighted child impurity.
+   *
+   * Test midpoints between distinct sorted feature values, retaining only splits that
+   * meet the minimum leaf count on both sides. Weight child impurity by sample count;
+   * using an unweighted average would favor tiny, pure leaves. Gain is parent impurity
+   * minus that weighted score and determines whether recursion is worthwhile.
+   */
+  function bestTreeSplit(
+    rows: Sample[],
+    features: number[],
+    minLeaf: number,
+    criterion: string,
+  ): {
+    feature: number;
+    threshold: number;
+    score: number;
+    gain: number;
+  } | null {
+    let best: {
+        feature: number;
+        threshold: number;
+        score: number;
+        gain: number;
+      } | null = null,
       base = impurity(rows, criterion);
     for (const f of features) {
       const sorted = rows
@@ -38,21 +62,32 @@ export function createTreeAlgorithms(classes) {
     }
     return best;
   }
-  /** Recursively split until depth, sample-count, or purity constraints require a leaf. */
+  /**
+   * Recursively partition training rows into class-predicting leaves.
+   *
+   * Pure nodes, insufficient samples, depth limits, and negligible impurity gains stop
+   * recursion. Leaves store class counts and majority prediction. Forests can request
+   * a random feature subset for candidate splits; that randomness is independent of
+   * the bootstrap sampling performed by the ensemble fitter.
+   *
+   * The ClassTree union makes leaf and split shapes mutually exclusive. A caller must
+   * check leaf before reading children or thresholds, preventing partial tree nodes
+   * from being treated as valid branches.
+   */
   function buildClassTree(
-    rows,
-    depth,
-    maxDepth,
-    minSplit,
-    minLeaf,
-    features,
-    criterion,
+    rows: Sample[],
+    depth: number,
+    maxDepth: number,
+    minSplit: number,
+    minLeaf: number,
+    features: number[],
+    criterion: string,
     randomFeatures = false,
-    featureCount = null,
-  ) {
+    featureCount: number | null = null,
+  ): ClassTree {
     const counts = classCounts(rows, Math.max(1, classes)),
       pred = counts.indexOf(Math.max(...counts));
-    const node = { leaf: true, pred, counts };
+    const node: ClassTree = { leaf: true, pred, counts };
     if (
       depth >= maxDepth ||
       rows.length < minSplit ||

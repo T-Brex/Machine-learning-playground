@@ -1,5 +1,13 @@
+import type {
+  MethodId,
+  MethodInfo,
+  Parameters,
+  ParameterSchema,
+  SymbolDefinition,
+} from "../types.ts";
+
 /** Algorithm formulas, glossary, and editable parameter schemas. */
-const METHOD_INFO = {
+const METHOD_INFO: Record<MethodId, MethodInfo> = {
   logistic: {
     status:
       "Implementato per classificazione binaria; per più classi usa Softmax.",
@@ -219,7 +227,7 @@ const METHOD_INFO = {
       "Parametri: componenti, covarianza, regolarizzazione, iterazioni. Metriche: log-likelihood, AIC/BIC.",
   },
 };
-const METHOD_SYMBOLS = {
+const METHOD_SYMBOLS: Record<MethodId, SymbolDefinition[]> = {
   logistic: [
     ["x, xᵢ", "Vettore delle feature di un campione; è l’input del modello."],
     [
@@ -808,8 +816,10 @@ METHOD_SYMBOLS.kmeans.push(
   ["minₖ", "Valore della distanza più piccola tra tutti i centroidi."],
   ["Σ", "Somma delle distanze al quadrato di tutti i campioni."],
 );
-METHOD_SYMBOLS.gmm.find(([symbol]) => symbol === "Σₖ")[1] =
-  "Nella sommatoria indica l’addizione sulle componenti; come pedice della covarianza in N(x|μₖ,Σₖ), indica la matrice di covarianza della componente k.";
+const covarianceSymbol = METHOD_SYMBOLS.gmm.find(([symbol]) => symbol === "Σₖ");
+if (covarianceSymbol)
+  covarianceSymbol[1] =
+    "Nella sommatoria indica l’addizione sulle componenti; come pedice della covarianza in N(x|μₖ,Σₖ), indica la matrice di covarianza della componente k.";
 METHOD_SYMBOLS.gmm.push([
   "|",
   "Dato che: N(x|μ,Σ) indica una gaussiana con media μ e covarianza Σ.",
@@ -832,7 +842,7 @@ METHOD_SYMBOLS.tree.push([
 ]);
 // Parameter tuples are [key, visible label, default value, input type].
 // A select type encodes its choices after "select:", separated by vertical bars.
-const PARAMS = {
+const PARAMS: Record<MethodId, ParameterSchema[]> = {
   logistic: [
     ["learningRate", "Learning rate α", "0.08", "number"],
     ["epochs", "Epoche", "120", "number"],
@@ -920,7 +930,7 @@ const PARAMS = {
     ["nEstimators", "Numero alberi", "100", "number"],
     ["maxDepth", "Profondità max", "8", "number"],
     ["maxFeatures", "Feature per split", "sqrt", "select:sqrt|log2|all"],
-    ["criterion", "Criterio", "gini|entropy|log_loss"],
+    ["criterion", "Criterio", "gini", "select:gini|entropy|log_loss"],
     ["minLeaf", "Min campioni foglia", "1", "number"],
     ["bootstrap", "Bootstrap", "true", "select:true|false"],
   ],
@@ -1009,7 +1019,7 @@ PARAMS.forest[3] = [
   "gini",
   "select:gini|entropy|log_loss",
 ];
-const COMMON_METHOD_SYMBOLS = [
+const COMMON_METHOD_SYMBOLS: SymbolDefinition[] = [
   [
     "x, xᵢ, xⱼ",
     "Feature/input del campione; gli indici identificano campione o feature.",
@@ -1080,7 +1090,7 @@ const COMMON_METHOD_SYMBOLS = [
     "Velocità del momentum o media mobile dei gradienti quadratici, secondo l’ottimizzatore.",
   ],
 ];
-const METHOD_FUNCTION_SYMBOLS = [
+const METHOD_FUNCTION_SYMBOLS: SymbolDefinition[] = [
   [
     "softmax",
     "Trasforma punteggi (logit) in probabilità positive che sommano a 1: softmax(z)ₖ = exp(zₖ)/Σⱼexp(zⱼ).",
@@ -1166,6 +1176,6 @@ const METHOD_FUNCTION_SYMBOLS = [
 ];
 COMMON_METHOD_SYMBOLS.push(...METHOD_FUNCTION_SYMBOLS);
 
-export { METHOD_INFO, PARAMS, METHOD_SYMBOLS, COMMON_METHOD_SYMBOLS };
-export const defaultParameters = (id) =>
+export { COMMON_METHOD_SYMBOLS, METHOD_INFO, METHOD_SYMBOLS, PARAMS };
+export const defaultParameters = (id: MethodId): Parameters =>
   Object.fromEntries((PARAMS[id] || []).map(([key, , value]) => [key, value]));

@@ -1,5 +1,10 @@
+import type { DatasetId, MethodId, PageId, TaskId } from "../types.ts";
+
 /** Task compatibility and display labels live outside UI components and numerical algorithms. */
-export const TASKS = {
+export const TASKS: Record<
+  TaskId,
+  { label: string; methods: MethodId[]; preferred: MethodId }
+> = {
   classification: {
     label: "Classificazione",
     methods: [
@@ -41,7 +46,7 @@ export const TASKS = {
     preferred: "adam",
   },
 };
-export const METHOD_LABELS = {
+export const METHOD_LABELS: Record<MethodId, string> = {
   logistic: "Regressione logistica binaria",
   softmax: "Regressione softmax",
   perceptron: "Perceptron",
@@ -68,7 +73,7 @@ export const METHOD_LABELS = {
   dbscan: "DBSCAN",
   gmm: "Gaussian Mixture Model",
 };
-export const DATASETS = [
+export const DATASETS: [DatasetId, string][] = [
   ["linear", "Classificazione binaria lineare"],
   ["linear_multiclass", "Settori lineari · multiclasse"],
   ["xor", "XOR"],
@@ -83,12 +88,12 @@ export const DATASETS = [
   ["regression_sine", "Sinusoidale"],
   ["regression_interaction", "Con interazione"],
 ];
-export const MULTICLASS_DATASETS = [
+export const MULTICLASS_DATASETS: DatasetId[] = [
   "linear_multiclass",
   "spiral3",
   "threeblobs",
 ];
-export const NEURAL_METHODS = [
+export const NEURAL_METHODS: MethodId[] = [
   "mlp",
   "sgd",
   "momentum",
@@ -98,7 +103,7 @@ export const NEURAL_METHODS = [
   "adam",
   "adamw",
 ];
-export const NAVIGATION = [
+export const NAVIGATION: [PageId, string][] = [
   ["home", "⌂ Panoramica"],
   ["data", "Dataset"],
   ["train", "Apprendimento"],

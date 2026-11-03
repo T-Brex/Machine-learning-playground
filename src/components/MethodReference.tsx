@@ -1,15 +1,22 @@
 import {
+  COMMON_METHOD_SYMBOLS,
   METHOD_INFO,
   METHOD_SYMBOLS,
-  COMMON_METHOD_SYMBOLS,
-} from "../data/methods.js";
-import { Panel, Stat, format } from "./Panel.jsx";
+} from "../data/methods.ts";
+import type { PlaygroundProps, SymbolDefinition } from "../types.ts";
+import { Panel, Stat, format } from "./Panel.tsx";
 
 /** Formula strings are local reference data; render text and line breaks as React nodes. */
-function Formula({ text, symbols }) {
-  const glossary = new Map(
+function Formula({
+  text,
+  symbols,
+}: {
+  text: string;
+  symbols: SymbolDefinition[];
+}) {
+  const glossary = new Map<string, string>(
     [...COMMON_METHOD_SYMBOLS, ...symbols].flatMap(([term, meaning]) =>
-      term.split(/,\s*/).map((t) => [t, meaning]),
+      term.split(/,\s*/).map((t): [string, string] => [t, meaning]),
     ),
   );
   return (
@@ -35,7 +42,7 @@ function Formula({ text, symbols }) {
     </div>
   );
 }
-export default function MethodReference({ playground: p }) {
+export default function MethodReference({ playground: p }: PlaygroundProps) {
   const info = METHOD_INFO[p.config.method],
     symbols = METHOD_SYMBOLS[p.config.method] || [];
   return (

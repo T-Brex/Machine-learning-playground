@@ -1,8 +1,70 @@
-/** Numerical explanations and visualization data derived from the live model. */
-import { sigmoid } from "./math.js";
+import type {
+  BoostModel,
+  ClassTree,
+  Configuration,
+  DetailRow,
+  EngineState,
+  LearningDetail,
+  LearningStep,
+  LearningTrace,
+  LearningVisualization,
+  LinearClassifier,
+  Matrix,
+  MethodId,
+  Model,
+  NaiveStatistics,
+  NeuralVisualization,
+  NumericParameter,
+  ReadParameter,
+  Sample,
+  Vector,
+} from "../types.ts";
+import { assertNever, modelOfKind, requireModel } from "./modelGuards.ts";
+/** Explicit dependencies keep tutorial calculations testable without a browser or UI state. */
+interface InspectorDependencies {
+  config: Configuration;
+  ENGINE_CLUSTER: Set<MethodId>;
+  getEngine: () => EngineState;
+  data: Sample[];
+  classes: number;
+  reset: () => void;
+  methodId: () => MethodId;
+  isRegressionTask: (id?: MethodId | null) => boolean;
+  regressionPlotInput: (x: number, dimensions: number) => Vector;
+  param: ReadParameter;
+  pNum: NumericParameter;
+  engineInit: () => void;
+  svmKernel: (a: Vector, b: Vector, id: MethodId) => number;
+  impurity: (rows: Sample[], criterion?: string) => number;
+  naiveScore: (x: Vector, st: NaiveStatistics, variant: string) => number;
+  boostProb: (m: BoostModel, x: Vector) => Vector;
+  enginePredict: (x: Vector) => number;
+  engineLoss: () => number;
+  evaluationLoss: (rows: Sample[]) => number;
+  rawRegressionFeatures: typeof import("./math.ts").rawRegressionFeatures;
+  regressionVector: typeof import("./math.ts").regressionVector;
+  vecDist: typeof import("./math.ts").vecDist;
+  softmax: typeof import("./math.ts").softmax;
+  treeClassify: typeof import("./math.ts").treeClassify;
+  treeValue: typeof import("./math.ts").treeValue;
+  createNaiveStats: typeof import("./math.ts").createNaiveStats;
+  gaussianPdf: typeof import("./math.ts").gaussianPdf;
+  mlpForward: ReturnType<
+    typeof import("./neural.ts").createNeuralAlgorithms
+  >["mlpForward"];
+  flattenMLP: ReturnType<
+    typeof import("./neural.ts").createNeuralAlgorithms
+  >["flattenMLP"];
+  unflattenMLP: ReturnType<
+    typeof import("./neural.ts").createNeuralAlgorithms
+  >["unflattenMLP"];
+  mlpGrad: ReturnType<
+    typeof import("./neural.ts").createNeuralAlgorithms
+  >["mlpGrad"];
+}
+
 export function createLearningInspector({
   config,
-  ENGINE_REGRESSION,
   ENGINE_CLUSTER,
   getEngine,
   data,
@@ -33,31 +95,32 @@ export function createLearningInspector({
   enginePredict,
   engineLoss,
   evaluationLoss,
-}) {
-  /** Describe actual intermediate values from the first training row, without applying a training update. */
-  function getAlgorithmLearningTrace() {
+}: InspectorDependencies) {
+  function getAlgorithmLearningTrace(): LearningTrace {
     const id = methodId();
-    if (getEngine().id !== id || !getEngine().model) {
+    let state = getEngine();
+    if (state.id !== id || !state.model) {
       reset();
       engineInit();
+      state = getEngine();
     }
-    const m = getEngine().model,
-      row = getEngine().train[0] || data[0];
+    const m = requireModel(state),
+      row = state.train[0] || data[0];
     if (!m || !row)
       return {
         status: "Genera o carica un dataset per vedere i calcoli.",
         steps: [],
       };
     const x = row.x,
-      steps = [],
-      fmt = (v) =>
+      steps: LearningStep[] = [],
+      fmt = (v: number) =>
         Number.isFinite(v)
           ? Math.abs(v) < 1e-4 && v !== 0
             ? v.toExponential(3)
             : v.toFixed(4)
           : String(v),
-      vec = (v) => `[${v.map(fmt).join(", ")}]`,
-      matrix = (a, r = 3, c = 4) =>
+      vec = (v: Vector) => `[${v.map(fmt).join(", ")}]`,
+      matrix = (a: Matrix, r = 3, c = 4) =>
         `[${a
           .slice(0, r)
           .map(
@@ -65,16 +128,16 @@ export function createLearningInspector({
               `[${row.slice(0, c).map(fmt).join(", ")}${row.length > c ? ", …" : ""}]`,
           )
           .join(", ")}${a.length > r ? ", …" : ""}]`,
-      add = (title, detail, fullDetail) =>
+      add = (title: string, detail: string, fullDetail?: string) =>
         steps.push({ title, detail, ...(fullDetail ? { fullDetail } : {}) });
     const paramSummary = Object.entries(config.parameters)
       .map(([key, value]) => `${key}=${value}`)
       .join(" · ");
     add(
       "1 · Campione e parametri",
-      `Campione di training reale: x = ${vec(x)}${Number.isFinite(row.y) ? `, target y = ${fmt(row.y)}` : ""}.\nTraining ${getEngine().train.length} campioni, validazione ${getEngine().test.length}; parametri selezionati: ${paramSummary || "nessun iperparametro aggiuntivo"}.`,
+      `Campione di training reale: x = ${vec(x)}${Number.isFinite(row.y) ? `, target y = ${fmt(row.y)}` : ""}.\nTraining ${state.train.length} campioni, validazione ${state.test.length}; parametri selezionati: ${paramSummary || "nessun iperparametro aggiuntivo"}.`,
     );
-    if (ENGINE_REGRESSION.has(id)) {
+    if (m.kind === "linear") {
       const phi = rawRegressionFeatures(x, m.degree),
         z = regressionVector(m, x),
         parts = z.map((v, i) => `${fmt(m.w[i])}·${fmt(v)}`);
@@ -100,7 +163,11 @@ export function createLearningInspector({
         "4 · Loss, regolarizzazione e gradiente",
         `MSE/2 sul training + penalità ${id}: λ=${fmt(lambda)}, ρ=${fmt(ratio)}.\nGradiente per campione (prima della media sul batch): ∂L/∂w ≈ e·φ + λ(1−ρ)w = ${vec(grad)}; ∂L/∂b ≈ e = ${fmt(err)}.\nAggiornamento reale: passo learningRate=${fmt(pNum("learningRate", 0.01, 1e-6, 2))}; w ← w−αg, poi soglia prossimale L1=${fmt(pNum("learningRate", 0.01, 1e-6, 2) * lambda * ratio)}; b ← b−α·media(e).`,
       );
-    } else if (id === "logistic" || id === "softmax" || id === "perceptron") {
+    } else if (
+      m.kind === "logistic" ||
+      m.kind === "softmax" ||
+      m.kind === "perceptron"
+    ) {
       const scores = m.w.map((w, c) =>
         w.reduce((s, v, i) => s + v * (x[i] || 0), m.b[c]),
       );
@@ -118,11 +185,11 @@ export function createLearningInspector({
             : `Distanza firmata dal lato della classe corretta = ${row.y === 1 ? "" : "−"}[z₁−z₀]/‖w₁−w₀‖ = ${fmt(signed)}. Positiva significa che il campione è dal lato corretto; il confronto dopo il passo mostra se si è avvicinato o allontanato.`,
         );
       }
-      if (id === "perceptron") {
+      if (m.kind === "perceptron") {
         const predicted = scores.indexOf(Math.max(...scores)),
           lr = pNum("learningRate", 0.1, 1e-6, 2),
           trueRow = m.w[row.y] || [],
-          gradient = x.map((v) => lr * v);
+          gradient = x.map((v: number) => lr * v);
         add(
           "2 · Prodotto scalare per ogni classe",
           `Punteggi zₖ=wₖᵀx+bₖ = ${vec(scores)}.\nŷ = argmax(zₖ) = classe ${predicted}; classe reale = ${row.y}.`,
@@ -139,7 +206,7 @@ export function createLearningInspector({
             row.y === c ? 1 : 0,
           ),
           loss = -Math.log(Math.max(1e-12, probs[row.y] || 0)),
-          grad = probs.map((p, c) => x.map((v) => (p - target[c]) * v));
+          grad = probs.map((p, c) => x.map((v: number) => (p - target[c]) * v));
         add(
           "2 · Matrice dei pesi × input",
           `W (prime righe) = ${matrix(m.w)}; b = ${vec(m.b)}.\nz = Wx+b = ${vec(scores)}.\nSoftmax(z) = exp(zₖ)/Σⱼexp(zⱼ) = ${vec(probs)}; target one-hot = ${vec(target)}.`,
@@ -155,15 +222,15 @@ export function createLearningInspector({
           `W ← W−α(∇W+λW), b ← b−α∇b; α=${fmt(pNum("learningRate", 0.08, 1e-6, 2))}, λ=${fmt(pNum("lambda", 0, 0, 100))}.\nIl vettore di pesi aggiornato è quello visibile nei risultati; premi “Esegui un passo reale” per applicare un batch al modello.`,
         );
       }
-    } else if (id === "knn") {
+    } else if (m.kind === "knn") {
       const metric = param("metric", "euclidean"),
-        k = Math.round(pNum("k", 5, 1, getEngine().train.length)),
+        k = Math.round(pNum("k", 5, 1, state.train.length)),
         weighted = param("weights", "uniform") === "distance",
-        allDistances = getEngine()
-          .train.map((r, i) => ({ i, y: r.y, d: vecDist(r.x, x, metric) }))
+        allDistances = state.train
+          .map((r, i) => ({ i, y: r.y, d: vecDist(r.x, x, metric) }))
           .sort((a, b) => a.d - b.d),
         neighbors = allDistances.slice(0, k),
-        votes = Array(Math.max(1, classes)).fill(0);
+        votes = Array<number>(Math.max(1, classes)).fill(0);
       neighbors.forEach((n) => (votes[n.y] += weighted ? 1 / (n.d + 1e-8) : 1));
       add(
         "2 · Distanze dal campione",
@@ -174,14 +241,14 @@ export function createLearningInspector({
         "3 · Voto dei k vicini",
         `k=${k}, pesatura=${weighted ? "1/(d+ε)" : "voto uniforme"}.\nVoti per classe = ${vec(votes)}; classe predetta = argmax(voti) = ${votes.indexOf(Math.max(...votes))}.\nKNN memorizza i dati: non aggiorna pesi con gradient descent.`,
       );
-    } else if (id === "svmrbf" || id === "svmpoly") {
+    } else if (m.kind === "svm") {
       const contributions = m.alpha.map((alpha, c) => {
         let score = m.bias[c],
-          lines = [],
-          allLines = [];
+          lines: string[] = [],
+          allLines: string[] = [];
         alpha.forEach((a, i) => {
-          if (a <= 1e-8 || i >= getEngine().train.length) return;
-          const support = getEngine().train[i],
+          if (a <= 1e-8 || i >= state.train.length) return;
+          const support = state.train[i],
             kernel = svmKernel(support.x, x, id),
             term = a * m.labels[c][i] * kernel;
           score += term;
@@ -206,20 +273,21 @@ export function createLearningInspector({
         "4 · Margine e perdita",
         `Per la classe corretta y=${row.y}, margine y·f(x)=${fmt((row.y === 0 ? -1 : 1) * contributions[row.y]?.score)}; hinge loss = max(0,1−margine). I moltiplicatori α dei support vector sono quelli del modello realmente addestrato.`,
       );
-    } else if (id === "tree" || id === "forest") {
+    } else if (m.kind === "tree" || m.kind === "forest") {
       const criterion = param("criterion", "gini"),
-        route = (root) => {
+        route = (root: ClassTree | null) => {
           let node = root,
-            subset = getEngine().train,
-            path = [];
+            subset = state.train,
+            path: string[] = [];
           while (node && !node.leaf) {
+            const current = node;
             const value = x[node.feature] || 0,
               left = value <= node.threshold,
               leftRows = subset.filter(
-                (r) => r.x[node.feature] <= node.threshold,
+                (r) => r.x[current.feature] <= current.threshold,
               ),
               rightRows = subset.filter(
-                (r) => r.x[node.feature] > node.threshold,
+                (r) => r.x[current.feature] > current.threshold,
               ),
               parentImpurity = impurity(subset, criterion),
               weighted =
@@ -235,7 +303,7 @@ export function createLearningInspector({
           }
           return { pred: node?.pred ?? 0, path, node, subset };
         };
-      if (id === "tree") {
+      if (m.kind === "tree") {
         const r = route(m.root);
         add(
           "2 · Percorso degli split",
@@ -246,7 +314,7 @@ export function createLearningInspector({
         add(
           "3 · Foglia e previsione",
           m.root
-            ? `Campioni nella foglia = ${r.subset.length}; conteggi classe = ${vec(r.node.counts)}; frequenze = ${vec(r.node.counts.map((n) => n / (r.subset.length || 1)))}; classe assegnata = argmax conteggi = ${r.pred}.`
+            ? `Campioni nella foglia = ${r.subset.length}; conteggi classe = ${vec(r.node?.counts || [])}; frequenze = ${vec((r.node?.counts || []).map((n) => n / (r.subset.length || 1)))}; classe assegnata = argmax conteggi = ${r.pred}.`
             : "Esegui un passo reale per costruire gli split e mostrare la foglia raggiunta.",
         );
       } else {
@@ -255,7 +323,7 @@ export function createLearningInspector({
             return `Albero ${i + 1}: ${r.path.join(" → ") || "foglia radice"} ⇒ classe ${r.pred}`;
           }),
           paths = allPaths.slice(0, 5),
-          votes = Array(Math.max(classes, 1)).fill(0);
+          votes = Array<number>(Math.max(classes, 1)).fill(0);
         m.trees.forEach((t) => votes[route(t).pred]++);
         add(
           "2 · Predizione dei singoli alberi",
@@ -269,7 +337,7 @@ export function createLearningInspector({
           `Voti (tutti gli alberi) = ${vec(votes)}; classe finale = ${votes.indexOf(Math.max(...votes))}. Alberi addestrati: ${m.trees.length}.`,
         );
       }
-    } else if (id === "boost") {
+    } else if (m.kind === "boost") {
       const rate = pNum("learningRate", 0.1, 1e-4, 1);
       if (m.regression) {
         const stageValues = m.trees[0].map((t) => rate * treeValue(t, x)),
@@ -305,12 +373,12 @@ export function createLearningInspector({
           `Softmax(z)=${vec(probs)}; classe prevista=${probs.indexOf(Math.max(...probs))}; stadi per classe=${vec(m.trees.map((t) => t.length))}.`,
         );
       }
-    } else if (id === "naive") {
+    } else if (m.kind === "naive") {
       const variant = param("variant", "gaussian"),
         stats = m.stats.length
           ? m.stats
           : createNaiveStats(
-              getEngine().train,
+              state.train,
               Math.max(1, classes),
               variant,
               pNum("smoothing", 1, 0, 100),
@@ -354,18 +422,7 @@ export function createLearningInspector({
         `Variante=${variant}. log P(y|x) (a costante vicino) = ${vec(scores)}.\nNormalizzazione delle probabilità = ${vec(prob)}; classe scelta=${scores.indexOf(Math.max(...scores))}.`,
         likelihoodDetails,
       );
-    } else if (
-      id === "mlp" ||
-      [
-        "sgd",
-        "momentum",
-        "nesterov",
-        "adagrad",
-        "rmsprop",
-        "adam",
-        "adamw",
-      ].includes(id)
-    ) {
+    } else if (m.kind === "mlp") {
       const theta = flattenMLP(m);
       let traceModel = m;
       if (m.opt === "nesterov") {
@@ -444,7 +501,7 @@ export function createLearningInspector({
         `Gradiente ∇θ del campione: ${vec(grad.slice(0, 8))}${grad.length > 8 ? " …" : ""}; parametri θ corrispondenti: ${vec(theta.slice(0, 8))}${theta.length > 8 ? " …" : ""}.\nOttimizzatore=${m.opt}; learning rate=${fmt(lr)}. Prossimo aggiornamento del primo parametro (senza applicarlo): ${updateMath}; θ₀ nuovo=${fmt(theta0 + delta)}.`,
         `∇W⁽¹⁾ = ${matrix(g.g.W1, g.g.W1.length, g.g.W1[0]?.length || 0)}\n∇b⁽¹⁾ = ${vec(g.g.b1)}\n∇W⁽²⁾ = ${matrix(g.g.W2, g.g.W2.length, g.g.W2[0]?.length || 0)}\n∇b⁽²⁾ = ${vec(g.g.b2)}\nW⁽¹⁾ corrente = ${matrix(m.W1, m.W1.length, m.W1[0]?.length || 0)}\nb⁽¹⁾ corrente = ${vec(m.b1)}\nW⁽²⁾ corrente = ${matrix(m.W2, m.W2.length, m.W2[0]?.length || 0)}\nb⁽²⁾ corrente = ${vec(m.b2)}\nCalcolo del primo elemento: ${updateMath}; θ₀ nuovo=${fmt(theta0 + delta)}. Il valore è illustrativo del prossimo passo, senza mutare il modello.`,
       );
-    } else if (id === "kmeans") {
+    } else if (m.kind === "kmeans") {
       const distances = m.centroids.map((c) => vecDist(c, x)),
         cluster = distances.indexOf(Math.min(...distances)),
         delta = x.map((v, i) => v - m.centroids[cluster][i]);
@@ -453,36 +510,36 @@ export function createLearningInspector({
         `Centroidi μₖ = ${matrix(m.centroids)}.\nd(x,μₖ) = ${vec(distances)}; il centro più vicino è μ_${cluster} (cluster ${cluster}).`,
       );
       const groups = m.centroids.map((_, c) =>
-          getEngine().train.filter((r) => enginePredict(r.x) === c),
+          state.train.filter((r) => enginePredict(r.x) === c),
         ),
         sums = groups.map((group) =>
           x.map((_, f) => group.reduce((sum, r) => sum + r.x[f], 0)),
         ),
         means = groups.map((group, c) =>
-          group.length ? sums[c].map((v) => v / group.length) : m.centroids[c],
+          group.length
+            ? sums[c].map((v: number) => v / group.length)
+            : m.centroids[c],
         );
       add(
         "3 · Assegnazione e aggiornamento centroide",
         `Assegnazione: argminₖ‖x−μₖ‖² = ${cluster}; residuo vettoriale x−μ = ${vec(delta)}.\nIl passo Lloyd riassegna tutti i punti e aggiorna μₖ come media dei vettori assegnati. Inertia training=${fmt(engineLoss())}.`,
-        `Conteggi per cluster = ${vec(groups.map((g) => g.length))}\nSomme vettoriali Σxᵢ = ${matrix(sums, sums.length, sums[0]?.length || 0)}\nCentroidi correnti μ = ${matrix(m.centroids, m.centroids.length, m.centroids[0]?.length || 0)}\nMedie (prossimo centroide stimato) = ${matrix(means, means.length, means[0]?.length || 0)}\nAssegnazioni di tutti i campioni:\n${getEngine()
-          .train.map(
-            (r, i) => `x${i}: ${vec(r.x)} → cluster ${enginePredict(r.x)}`,
-          )
+        `Conteggi per cluster = ${vec(groups.map((g) => g.length))}\nSomme vettoriali Σxᵢ = ${matrix(sums, sums.length, sums[0]?.length || 0)}\nCentroidi correnti μ = ${matrix(m.centroids, m.centroids.length, m.centroids[0]?.length || 0)}\nMedie (prossimo centroide stimato) = ${matrix(means, means.length, means[0]?.length || 0)}\nAssegnazioni di tutti i campioni:\n${state.train
+          .map((r, i) => `x${i}: ${vec(r.x)} → cluster ${enginePredict(r.x)}`)
           .join("\n")}`,
       );
-    } else if (id === "dbscan") {
+    } else if (m.kind === "dbscan") {
       const eps = pNum("eps", 0.5, 1e-4, 100),
         minPts = Math.round(pNum("minPts", 5, 1, 1000)),
         metric = param("metric", "euclidean"),
-        neighbors = getEngine()
-          .train.map((r, i) => ({
+        neighbors = state.train
+          .map((r, i) => ({
             i,
             d: vecDist(r.x, x, metric),
             label: m.labels[i],
           }))
           .filter((r) => r.d <= eps),
-        nearest = getEngine()
-          .train.map((r, i) => ({
+        nearest = state.train
+          .map((r, i) => ({
             i,
             d: vecDist(r.x, x, metric),
             label: m.labels[i],
@@ -499,8 +556,8 @@ export function createLearningInspector({
                 .join(", ")}${neighbors.length > 8 ? ", …" : ""})`
             : ""
         }; confronto con minPts ${neighbors.length >= minPts ? "soddisfatto" : "non soddisfatto"}.`,
-        `Distanze da tutti i campioni (indice, distanza, etichetta):\n${getEngine()
-          .train.map((r, i) => ({
+        `Distanze da tutti i campioni (indice, distanza, etichetta):\n${state.train
+          .map((r, i) => ({
             i,
             d: vecDist(r.x, x, metric),
             label: m.labels[i],
@@ -515,12 +572,12 @@ export function createLearningInspector({
         "3 · Nucleo, bordo o rumore",
         `Regola di assegnazione del modello: nearest labeled core ${nearest ? `x${nearest.i} a distanza ${fmt(nearest.d)}, cluster ${nearest.label}` : "non trovato"}.\nPrevisione corrente=${enginePredict(x) < 0 ? "rumore (−1)" : `cluster ${enginePredict(x)}`}. DBSCAN non ottimizza una loss differenziabile.`,
       );
-    } else if (id === "gmm") {
+    } else if (m.kind === "gmm") {
       const weighted = m.means.map(
           (mu, c) => m.mix[c] * gaussianPdf(x, mu, m.covs[c]),
         ),
         total = weighted.reduce((a, b) => a + b, 0),
-        posterior = weighted.map((v) => v / (total || 1));
+        posterior = weighted.map((v: number) => v / (total || 1));
       add(
         "2 · Densità di ogni componente",
         `Matrice di covarianza Σ (componente 1, porzione) = ${matrix(m.covs[0] || [])}.\nPesi πₖ=${vec(m.mix)}; μ (porzione)=${matrix(m.means)}.\nπₖ·N(x|μₖ,Σₖ) = ${vec(weighted)}.`,
@@ -532,20 +589,14 @@ export function createLearningInspector({
       );
       add(
         "4 · M-step e obiettivo",
-        `M-step: usa rₖ come pesi per aggiornare μₖ, Σₖ e πₖ con tutti i campioni.\nNegative log-likelihood training=${fmt(engineLoss())}; iterazione EM=${getEngine().iteration}.`,
+        `M-step: usa rₖ come pesi per aggiornare μₖ, Σₖ e πₖ con tutti i campioni.\nNegative log-likelihood training=${fmt(engineLoss())}; iterazione EM=${state.iteration}.`,
       );
     } else {
-      add(
-        "2 · Modello",
-        `Tipo modello: ${m.kind}. Calcolo in ingresso x=${vec(x)}.`,
-      );
-      add(
-        "3 · Risultato",
-        `Previsione effettiva del motore = ${enginePredict(x)}.`,
-      );
+      // Adding a model family also requires adding its numerical explanation.
+      assertNever(m);
     }
-    if (getEngine().previousModel && ENGINE_REGRESSION.has(id)) {
-      const previous = getEngine().previousModel,
+    if (state.previousModel?.kind === "linear" && m.kind === "linear") {
+      const previous = state.previousModel,
         oldPrediction = previous.w.reduce(
           (sum, value, index) =>
             sum + value * regressionVector(previous, x)[index],
@@ -558,19 +609,21 @@ export function createLearningInspector({
         delta = m.w.map((value, index) => value - previous.w[index]);
       add(
         "Aggiornamento realmente applicato",
-        `Confronto del passo ${getEngine().iteration - 1} → ${getEngine().iteration}: Δw = ${vec(delta)}, Δb = ${fmt(m.b - previous.b)}.\nSul campione x selezionato: previsione ${fmt(oldPrediction)} → ${fmt(newPrediction)}; residuo assoluto ${fmt(Math.abs(row.y - oldPrediction))} → ${fmt(Math.abs(row.y - newPrediction))}. Il batch può migliorare alcuni campioni e peggiorarne altri.`,
+        `Confronto del passo ${state.iteration - 1} → ${state.iteration}: Δw = ${vec(delta)}, Δb = ${fmt(m.b - previous.b)}.\nSul campione x selezionato: previsione ${fmt(oldPrediction)} → ${fmt(newPrediction)}; residuo assoluto ${fmt(Math.abs(row.y - oldPrediction))} → ${fmt(Math.abs(row.y - newPrediction))}. Il batch può migliorare alcuni campioni e peggiorarne altri.`,
       );
     } else if (
-      getEngine().previousModel &&
-      ["logistic", "softmax", "perceptron"].includes(id) &&
+      state.previousModel &&
+      (m.kind === "logistic" ||
+        m.kind === "softmax" ||
+        m.kind === "perceptron") &&
       classes === 2
     ) {
-      const previous = getEngine().previousModel,
+      const previous = modelOfKind(state.previousModel, m.kind),
         deltaW = m.w.map((weights, c) =>
           weights.map((value, index) => value - previous.w[c][index]),
         ),
         deltaB = m.b.map((value, c) => value - previous.b[c]),
-        margin = (model) => {
+        margin = (model: LinearClassifier) => {
           const scores = model.w.map((weights, c) =>
               weights.reduce(
                 (sum, value, index) => sum + value * (x[index] || 0),
@@ -590,11 +643,11 @@ export function createLearningInspector({
         newMargin = margin(m);
       add(
         "Aggiornamento realmente applicato",
-        `Confronto del passo ${getEngine().iteration - 1} → ${getEngine().iteration}: ΔW = ${matrix(deltaW, deltaW.length, deltaW[0]?.length || 0)}, Δb = ${vec(deltaB)}.\nSul campione selezionato, distanza firmata dal lato corretto: ${oldMargin === null ? "non definita (norma iniziale zero)" : fmt(oldMargin)} → ${newMargin === null ? "non definita (norma zero)" : fmt(newMargin)}${oldMargin === null ? "" : ` (${newMargin >= oldMargin ? "migliora" : "peggiora"})`}.`,
+        `Confronto del passo ${state.iteration - 1} → ${state.iteration}: ΔW = ${matrix(deltaW, deltaW.length, deltaW[0]?.length || 0)}, Δb = ${vec(deltaB)}.\nSul campione selezionato, distanza firmata dal lato corretto: ${oldMargin === null ? "non definita (norma iniziale zero)" : fmt(oldMargin)} → ${newMargin === null ? "non definita (norma zero)" : fmt(newMargin)}${oldMargin === null || newMargin === null ? "" : ` (${newMargin >= oldMargin ? "migliora" : "peggiora"})`}.`,
       );
     }
-    if (getEngine().fitted) {
-      const metrics = Object.entries(getEngine().metrics || {})
+    if (state.fitted) {
+      const metrics = Object.entries(state.metrics || {})
         .filter(
           ([, value]) => typeof value !== "number" || Number.isFinite(value),
         )
@@ -605,25 +658,28 @@ export function createLearningInspector({
         .join("\n");
       add(
         "Valutazione sul set di validazione",
-        metrics || `Validation loss=${fmt(evaluationLoss(getEngine().test))}.`,
+        metrics || `Validation loss=${fmt(evaluationLoss(state.test))}.`,
       );
     }
     return {
-      status: getEngine().fitted
-        ? `Traccia del modello addestrato · passo ${getEngine().iteration}. Il campione mostrato è un esempio concreto; le metriche finali usano l’intero set di validazione.`
+      status: state.fitted
+        ? `Traccia del modello addestrato · passo ${state.iteration}. Il campione mostrato è un esempio concreto; le metriche finali usano l’intero set di validazione.`
         : "Modello inizializzato ma non addestrato. I calcoli mostrano i parametri iniziali; esegui un passo reale per vedere l’aggiornamento. Il training applica i calcoli al batch configurato.",
       steps,
     };
   }
-  /** Build boundaries, residuals, neighborhoods, or model surfaces for the selected training sample. */
-  function getAlgorithmLearningVisualization(selectedSampleIndex = 0) {
+  function getAlgorithmLearningVisualization(
+    selectedSampleIndex = 0,
+  ): LearningVisualization {
     const id = methodId();
-    if (getEngine().id !== id || !getEngine().model) {
+    let state = getEngine();
+    if (state.id !== id || !state.model) {
       reset();
       engineInit();
+      state = getEngine();
     }
-    const rows = getEngine().train,
-      m = getEngine().model,
+    const rows = state.train,
+      m = requireModel(state),
       selectedRowIndex = rows.length
         ? Math.max(
             0,
@@ -634,15 +690,16 @@ export function createLearningInspector({
           )
         : 0;
     if (isRegressionTask(id)) {
-      const predict = (model, x) => {
-        if (ENGINE_REGRESSION.has(id)) {
+      const predict = (model: Model | null, x: Vector) => {
+        if (!model) throw new Error("Missing regression model");
+        if (model.kind === "linear") {
           const features = regressionVector(model, x);
           return model.w.reduce(
             (sum, weight, index) => sum + weight * features[index],
             model.b,
           );
         }
-        if (id === "boost")
+        if (model.kind === "boost")
           return (
             model.base[0] +
             model.trees[0].reduce(
@@ -651,12 +708,14 @@ export function createLearningInspector({
               0,
             )
           );
+        if (model.kind !== "mlp")
+          throw new Error("Expected a regression-capable model");
         return mlpForward(model, x).out[0];
       };
       const entries = rows.map((row, index) => {
-        const prediction = predict(getEngine().model, row.x),
-          previousPrediction = getEngine().previousModel
-            ? predict(getEngine().previousModel, row.x)
+        const prediction = predict(state.model, row.x),
+          previousPrediction = state.previousModel
+            ? predict(state.previousModel, row.x)
             : null,
           residual = row.y - prediction,
           previousResidual =
@@ -692,30 +751,43 @@ export function createLearningInspector({
             features = regressionPlotInput(x, rows[0]?.x.length || 1);
           return {
             x,
-            before: getEngine().previousModel
-              ? predict(getEngine().previousModel, features)
+            before: state.previousModel
+              ? predict(state.previousModel, features)
               : null,
-            after: predict(getEngine().model, features),
+            after: predict(state.model, features),
           };
         });
       return {
         kind: "regression",
-        iteration: getEngine().iteration,
-        hasPrevious: !!getEngine().previousModel,
+        iteration: state.iteration,
+        hasPrevious: !!state.previousModel,
         dimensions: rows[0]?.x.length || 1,
         entries,
         curve,
       };
     }
-    if (["logistic", "softmax", "perceptron"].includes(id) && classes === 2) {
+    if (
+      (m.kind === "logistic" ||
+        m.kind === "softmax" ||
+        m.kind === "perceptron") &&
+      classes === 2
+    ) {
       const means = Array.from(
         { length: rows[0]?.x.length || 0 },
         (_, index) =>
           rows.reduce((sum, row) => sum + (row.x[index] || 0), 0) /
           (rows.length || 1),
       );
-      const geometry = (model) => {
-        if (!model) return null;
+      const geometry = (model: Model | null) => {
+        if (
+          !model ||
+          !(
+            model.kind === "logistic" ||
+            model.kind === "softmax" ||
+            model.kind === "perceptron"
+          )
+        )
+          return null;
         const weights = model.w[1].map(
             (value, index) => value - model.w[0][index],
           ),
@@ -732,12 +804,12 @@ export function createLearningInspector({
             );
         return { weights, bias, norm, intercept: sliceBias };
       };
-      const current = geometry(getEngine().model),
-        previous = geometry(getEngine().previousModel);
+      const current = geometry(state.model),
+        previous = geometry(state.previousModel);
       if (!current)
         return {
           kind: "classification",
-          iteration: getEngine().iteration,
+          iteration: state.iteration,
           hasPrevious: !!previous,
           hasBoundary: false,
           entries: rows.map((row, index) => ({
@@ -752,7 +824,10 @@ export function createLearningInspector({
           message:
             "Con pesi ancora nulli non esiste una retta decisionale definita. Esegui un passo reale per iniziare a visualizzarla.",
         };
-      const distance = (model, row) => {
+      const distance = (
+        model: { weights: Vector; bias: number; norm: number } | null,
+        row: Sample,
+      ) => {
         if (!model) return null;
         const score = model.weights.reduce(
           (sum, value, index) => sum + value * (row.x[index] || 0),
@@ -770,14 +845,16 @@ export function createLearningInspector({
           beforeDistance,
           afterDistance,
           change:
-            beforeDistance === null ? null : afterDistance - beforeDistance,
+            beforeDistance === null || afterDistance === null
+              ? null
+              : afterDistance - beforeDistance,
           predicted: enginePredict(row.x),
           selected: index === selectedRowIndex,
         };
       });
       return {
         kind: "classification",
-        iteration: getEngine().iteration,
+        iteration: state.iteration,
         hasPrevious: !!previous,
         hasBoundary: true,
         boundary: {
@@ -848,8 +925,8 @@ export function createLearningInspector({
       prediction: enginePredict(row.x),
       selected: index === selectedIndex,
     }));
-    const details = [];
-    if (id === "knn") {
+    const details: LearningDetail[] = [];
+    if (m.kind === "knn") {
       const metric = param("metric", "euclidean"),
         k = Math.min(rows.length, Math.round(pNum("k", 5, 1, rows.length))),
         neighbors = rows
@@ -869,7 +946,7 @@ export function createLearningInspector({
           kind: "distance",
         })),
       });
-    } else if (id === "svmrbf" || id === "svmpoly") {
+    } else if (m.kind === "svm") {
       const support = rows
         .map((row, index) => ({
           index,
@@ -888,9 +965,9 @@ export function createLearningInspector({
           kind: "similarity",
         })),
       });
-    } else if (id === "tree") {
+    } else if (m.kind === "tree") {
       let node = m.root,
-        path = [];
+        path: DetailRow[] = [];
       while (node && !node.leaf) {
         const value = selected.x[node.feature] || 0,
           left = value <= node.threshold;
@@ -917,8 +994,8 @@ export function createLearningInspector({
               },
             ],
       });
-    } else if (id === "forest") {
-      const votes = Array(Math.max(1, classes)).fill(0);
+    } else if (m.kind === "forest") {
+      const votes = Array<number>(Math.max(1, classes)).fill(0);
       m.trees.forEach((tree) => votes[treeClassify(tree, selected.x)]++);
       details.push({
         title: "Voti degli alberi per il campione selezionato",
@@ -928,7 +1005,7 @@ export function createLearningInspector({
           kind: "vote",
         })),
       });
-    } else if (id === "boost") {
+    } else if (m.kind === "boost") {
       const scores = m.regression
         ? [
             m.base[0] +
@@ -966,7 +1043,7 @@ export function createLearningInspector({
               kind: "probability",
             })),
       });
-    } else if (id === "naive") {
+    } else if (m.kind === "naive") {
       const scores = m.stats.map((stats) =>
           naiveScore(selected.x, stats, m.variant),
         ),
@@ -979,18 +1056,7 @@ export function createLearningInspector({
           kind: "probability",
         })),
       });
-    } else if (
-      id === "mlp" ||
-      [
-        "sgd",
-        "momentum",
-        "nesterov",
-        "adagrad",
-        "rmsprop",
-        "adam",
-        "adamw",
-      ].includes(id)
-    ) {
+    } else if (m.kind === "mlp") {
       const forward = mlpForward(m, selected.x);
       details.push({
         title: "Attivazioni della rete sul campione selezionato",
@@ -1012,7 +1078,7 @@ export function createLearningInspector({
           })),
         ],
       });
-    } else if (id === "kmeans") {
+    } else if (m.kind === "kmeans") {
       details.push({
         title: "Distanza del campione dai centroidi",
         rows: m.centroids.map((centroid, index) => ({
@@ -1021,7 +1087,7 @@ export function createLearningInspector({
           kind: "distance",
         })),
       });
-    } else if (id === "dbscan") {
+    } else if (m.kind === "dbscan") {
       const label = m.labels[selectedIndex],
         neighbors = rows
           .map((row, index) => ({
@@ -1044,7 +1110,7 @@ export function createLearningInspector({
           kind: "distance",
         })),
       });
-    } else if (id === "gmm") {
+    } else if (m.kind === "gmm") {
       const scores = m.means.map(
           (mean, index) =>
             m.mix[index] * gaussianPdf(selected.x, mean, m.covs[index]),
@@ -1065,13 +1131,13 @@ export function createLearningInspector({
     }
     const path = m.kind === "tree" ? details[0]?.rows || [] : [],
       centroids =
-        id === "kmeans"
+        m.kind === "kmeans"
           ? m.centroids.map((center, index) => ({
               index,
               x: center[0] || 0,
               y: center[1] || 0,
             }))
-          : id === "gmm"
+          : m.kind === "gmm"
             ? m.means.map((center, index) => ({
                 index,
                 x: center[0] || 0,
@@ -1079,9 +1145,9 @@ export function createLearningInspector({
               }))
             : [],
       supportVectors =
-        id === "svmrbf" || id === "svmpoly"
+        m.kind === "svm"
           ? rows
-              .map((row, index) => ({
+              .map((_row, index) => ({
                 index,
                 alpha: Math.max(...m.alpha.map((values) => values[index] || 0)),
               }))
@@ -1089,13 +1155,13 @@ export function createLearningInspector({
           : [];
     return {
       kind:
-        ENGINE_REGRESSION.has(id) || (id === "boost" && m.regression)
+        m.kind === "linear" || (m.kind === "boost" && m.regression)
           ? "model-regression"
           : ENGINE_CLUSTER.has(id)
             ? "model-clustering"
             : "model-classification",
       algorithm: id,
-      iteration: getEngine().iteration,
+      iteration: state.iteration,
       selectedIndex,
       selected: {
         index: selectedIndex,
@@ -1124,7 +1190,7 @@ export function createLearningInspector({
     };
   }
   /** Expose current and previous activations and weights for the neural-network drawing. */
-  function getNeuralNetworkLearningVisualization() {
+  function getNeuralNetworkLearningVisualization(): NeuralVisualization | null {
     const id = methodId(),
       neuralMethods = [
         "mlp",
@@ -1138,14 +1204,14 @@ export function createLearningInspector({
       ];
     if (!neuralMethods.includes(id)) return null;
     if (getEngine().id !== id || !getEngine().model) engineInit();
-    const model = getEngine().model;
+    const state = getEngine();
+    const model = state.model;
     if (model?.kind !== "mlp") return null;
-    const x = (getEngine().train[0] || data[0])?.x || Array(model.d).fill(0),
+    const x =
+        (getEngine().train[0] || data[0])?.x || Array<number>(model.d).fill(0),
       forward = mlpForward(model, x),
       previous =
-        getEngine().previousModel?.kind === "mlp"
-          ? getEngine().previousModel
-          : null,
+        state.previousModel?.kind === "mlp" ? state.previousModel : null,
       previousForward = previous ? mlpForward(previous, x) : null;
     return {
       iteration: getEngine().iteration,

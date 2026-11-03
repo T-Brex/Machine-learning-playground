@@ -1,3 +1,12 @@
+import type {
+  ChartView,
+  Dataset,
+  NeuralDiagnostics,
+  NeuralVisualization,
+  Snapshot,
+  Vector,
+} from "../types.ts";
+
 // Canvas drawing stays imperative, but receives data and never queries or changes the DOM.
 export const COLORS = [
   "#2995ff",
@@ -9,12 +18,22 @@ export const COLORS = [
   "#ff657a",
   "#a7a7ff",
 ];
-export const classColor = (label) =>
+export const classColor = (label: number) =>
   label < 0 ? "#8192a8" : COLORS[label % COLORS.length];
 
 /** Return data-to-pixel scales and draw labeled ticks inside a consistent plotting margin. */
 
-function axes(ctx, width, height, xLabel, yLabel, xMin, xMax, yMin, yMax) {
+function axes(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  xLabel: string,
+  yLabel: string,
+  xMin: number,
+  xMax: number,
+  yMin: number,
+  yMax: number,
+) {
   const left = 58,
     right = width - 18,
     top = 24,
@@ -23,8 +42,10 @@ function axes(ctx, width, height, xLabel, yLabel, xMin, xMax, yMin, yMax) {
   ctx.fillStyle = "#9db6d4";
   ctx.strokeStyle = "#234565";
   ctx.lineWidth = 1;
-  const x = (v) => left + ((v - xMin) / (xMax - xMin || 1)) * (right - left),
-    y = (v) => bottom - ((v - yMin) / (yMax - yMin || 1)) * (bottom - top);
+  const x = (v: number) =>
+      left + ((v - xMin) / (xMax - xMin || 1)) * (right - left),
+    y = (v: number) =>
+      bottom - ((v - yMin) / (yMax - yMin || 1)) * (bottom - top);
   for (let i = 0; i < 5; i++) {
     const a = xMin + ((xMax - xMin) * i) / 4,
       b = yMin + ((yMax - yMin) * i) / 4;
@@ -35,9 +56,9 @@ function axes(ctx, width, height, xLabel, yLabel, xMin, xMax, yMin, yMax) {
     ctx.lineTo(right, y(b));
     ctx.stroke();
     ctx.textAlign = "center";
-    ctx.fillText(Number(a.toFixed(2)), x(a), bottom + 16);
+    ctx.fillText(String(Number(a.toFixed(2))), x(a), bottom + 16);
     ctx.textAlign = "right";
-    ctx.fillText(Number(b.toFixed(3)), left - 7, y(b) + 3);
+    ctx.fillText(String(Number(b.toFixed(3))), left - 7, y(b) + 3);
   }
   ctx.textAlign = "center";
   ctx.fillText(xLabel, (left + right) / 2, height - 7);
@@ -53,14 +74,14 @@ function axes(ctx, width, height, xLabel, yLabel, xMin, xMax, yMin, yMax) {
 /** Plot finite history values; logarithmic loss uses log10 and keeps zeros above a small floor. */
 
 export function drawLines(
-  ctx,
-  w,
-  h,
-  series,
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  series: { values: Vector; color: string; label: string }[],
   { log = false, yLabel = "Loss" } = {},
 ) {
   const clean = series.flatMap((s) => s.values).filter(Number.isFinite);
-  const transform = (v) => (log ? Math.log10(Math.max(1e-8, v)) : v);
+  const transform = (v: number) => (log ? Math.log10(Math.max(1e-8, v)) : v);
   const values = clean.map(transform),
     lo = Math.min(0, ...values),
     hi = Math.max(log ? lo + 1 : 1, ...values);
@@ -81,7 +102,7 @@ export function drawLines(
     ctx.lineWidth = 2;
     ctx.beginPath();
     let started = false;
-    line.forEach((v, i) => {
+    line.forEach((v: number, i: number) => {
       if (!Number.isFinite(v)) {
         started = false;
         return;
@@ -102,7 +123,7 @@ export function drawLines(
     ctx.fillStyle = color;
     ctx.fillText(
       label,
-      a.left + series.indexOf(series.find((s) => s.values === line)) * 110,
+      a.left + series.indexOf(series.find((s) => s.values === line)!) * 110,
       14,
     );
   }
@@ -118,11 +139,16 @@ export function drawLines(
 
 /** Bin completed training losses to show how frequently each loss range occurred. */
 
-export function drawHistogram(ctx, w, h, losses) {
+export function drawHistogram(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  losses: Vector,
+) {
   const values = losses.filter(Number.isFinite),
     lo = Math.min(...values),
     hi = Math.max(...values),
-    bins = Array(12).fill(0);
+    bins = Array<number>(12).fill(0);
   for (const value of values)
     bins[Math.min(11, Math.floor(((value - lo) / (hi - lo || 1)) * 12))]++;
   const a = axes(
@@ -136,7 +162,7 @@ export function drawHistogram(ctx, w, h, losses) {
     0,
     Math.max(1, ...bins),
   );
-  bins.forEach((n, i) => {
+  bins.forEach((n, i: number) => {
     ctx.fillStyle = COLORS[0];
     const bw = (a.right - a.left) / 12;
     ctx.fillRect(a.left + i * bw + 1, a.y(n), bw - 2, a.bottom - a.y(n));
@@ -145,35 +171,49 @@ export function drawHistogram(ctx, w, h, losses) {
 
 /** Spatial projection uses only visible dimensions; predictions retain every feature. */
 export function drawScatter(
-  ctx,
-  w,
-  h,
-  { dataset, engine, snapshot, view, selected = -1, hiddenClasses = [] },
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  {
+    dataset,
+    engine,
+    snapshot,
+    view,
+    selected = -1,
+    hiddenClasses = [],
+  }: {
+    dataset: Dataset;
+    engine: ReturnType<typeof import("./createEngine.ts").createEngine>;
+    snapshot: Snapshot;
+    view: ChartView;
+    selected?: number;
+    hiddenClasses?: number[];
+  },
 ) {
   const rows = dataset.data,
     three = (rows[0]?.x.length || 2) >= 3;
   const min = [0, 1, 2].map(
-      (i) => Math.min(-2, ...rows.map((r) => r.x[i] || 0)) - 0.3,
+      (i: number) => Math.min(-2, ...rows.map((r) => r.x[i] || 0)) - 0.3,
     ),
     max = [0, 1, 2].map(
-      (i) => Math.max(2, ...rows.map((r) => r.x[i] || 0)) + 0.3,
+      (i: number) => Math.max(2, ...rows.map((r) => r.x[i] || 0)) + 0.3,
     );
   // The foreground, prediction grid, and axis ticks share the same inverse projection.
   const centerX = (w + 40) / 2,
     centerY = (h - 20) / 2;
   const plotWidth = Math.max(1, w - 76),
     plotHeight = Math.max(1, h - 68);
-  const visibleX = (pixel) =>
+  const visibleX = (pixel: number) =>
     min[0] +
     ((pixel - centerX - view.panX) / (plotWidth * view.zoom) + 0.5) *
       (max[0] - min[0]);
-  const visibleY = (pixel) =>
+  const visibleY = (pixel: number) =>
     min[1] +
     ((centerY + view.panY - pixel) / (plotHeight * view.zoom) + 0.5) *
       (max[1] - min[1]);
-  const project = (x) => {
+  const project = (x: Vector): [number, number] => {
     const n = [0, 1, 2].map(
-      (i) => ((x[i] || 0) - min[i]) / (max[i] - min[i]) - 0.5,
+      (i: number) => ((x[i] || 0) - min[i]) / (max[i] - min[i]) - 0.5,
     );
     if (!three)
       return [
@@ -209,7 +249,7 @@ export function drawScatter(
     const origin = project([0, 0, 0]);
     ctx.strokeStyle = "#6b89a9";
     ctx.font = "11px system-ui";
-    [0, 1, 2].forEach((i) => {
+    [0, 1, 2].forEach((i: number) => {
       const end = [0, 0, 0];
       end[i] = max[i];
       const p = project(end);
@@ -230,7 +270,7 @@ export function drawScatter(
               min[0] + ((max[0] - min[0]) * i) / 14,
               min[1] + ((max[1] - min[1]) * j) / 14,
               min[2] + ((max[2] - min[2]) * k) / 2,
-              ...Array(Math.max(0, rows[0].x.length - 3)).fill(0),
+              ...Array<number>(Math.max(0, rows[0].x.length - 3)).fill(0),
             ];
             const label = engine.predict(x);
             if (hiddenClasses.includes(label)) continue;
@@ -272,8 +312,13 @@ export function drawScatter(
         ctx.stroke();
       }
     });
-  const centers = snapshot.model?.centroids || snapshot.model?.means || [];
-  centers.forEach((center, i) => {
+  const centers =
+    snapshot.model?.kind === "kmeans"
+      ? snapshot.model.centroids
+      : snapshot.model?.kind === "gmm"
+        ? snapshot.model.means
+        : [];
+  centers.forEach((center, i: number) => {
     const [x, y] = project(center);
     ctx.strokeStyle = classColor(i);
     ctx.lineWidth = 3;
@@ -289,7 +334,12 @@ export function drawScatter(
 
 /** Draw one connection per weight, with sign encoded by color and magnitude by thickness. */
 
-export function drawNetwork(ctx, w, h, network) {
+export function drawNetwork(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  network: NeuralVisualization | null,
+) {
   if (!network) return;
   const layers = [
       network.inputValues,
@@ -297,13 +347,13 @@ export function drawNetwork(ctx, w, h, network) {
       network.outputValues,
     ],
     weights = [network.weightsInputHidden, network.weightsHiddenOutput];
-  const point = (layer, i) => ({
+  const point = (layer: number, i: number) => ({
     x: 45 + (layer * (w - 90)) / 2,
     y: 40 + ((i + 0.5) * (h - 80)) / layers[layer].length,
   });
-  weights.forEach((matrix, l) =>
+  weights.forEach((matrix, l: number) =>
     matrix.forEach((row, j) =>
-      row.forEach((weight, i) => {
+      row.forEach((weight, i: number) => {
         const a = point(l, i),
           b = point(l + 1, j);
         ctx.strokeStyle = weight >= 0 ? "#2995ff99" : "#ff9d3799";
@@ -315,12 +365,12 @@ export function drawNetwork(ctx, w, h, network) {
       }),
     ),
   );
-  layers.forEach((layer, l) => {
+  layers.forEach((layer, l: number) => {
     ctx.fillStyle = "#b9d6f5";
     ctx.font = "12px system-ui";
     ctx.textAlign = "center";
     ctx.fillText(["Input", "Hidden · tanh", "Output"][l], point(l, 0).x, 20);
-    layer.forEach((value, i) => {
+    layer.forEach((value, i: number) => {
       const { x, y } = point(l, i);
       ctx.beginPath();
       ctx.fillStyle = "#123a65";
@@ -339,7 +389,12 @@ export function drawNetwork(ctx, w, h, network) {
 
 /** Color a two-weight objective slice; the white marker is the current parameter pair. */
 
-export function drawLossSurface(ctx, w, h, diagnostics) {
+export function drawLossSurface(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  diagnostics: NeuralDiagnostics,
+) {
   const { surface, xMin, xMax, yMin, yMax } = diagnostics;
   const values = surface.flat(),
     lo = Math.min(...values),
@@ -358,7 +413,7 @@ export function drawLossSurface(ctx, w, h, diagnostics) {
   const cw = (a.right - a.left) / surface[0].length,
     ch = (a.bottom - a.top) / surface.length;
   surface.forEach((row, y) =>
-    row.forEach((loss, x) => {
+    row.forEach((loss, x: number) => {
       const t = (loss - lo) / (hi - lo || 1);
       ctx.fillStyle = `hsl(${230 - 210 * t} 75% ${28 + 25 * t}%)`;
       ctx.fillRect(a.left + x * cw, a.bottom - (y + 1) * ch, cw + 1, ch + 1);

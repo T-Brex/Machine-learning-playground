@@ -1,5 +1,12 @@
+import type { HTMLAttributes, ReactNode } from "react";
+
 /** Small presentational primitives keep panels, labels, and metric cards consistent. */
-export function Panel({ title, children, className = "", ...props }) {
+export function Panel({
+  title,
+  children,
+  className = "",
+  ...props
+}: HTMLAttributes<HTMLElement> & { title: string; children: ReactNode }) {
   return (
     <section className={`panel ${className}`} {...props}>
       <div className="ph">{title}</div>
@@ -7,7 +14,15 @@ export function Panel({ title, children, className = "", ...props }) {
     </section>
   );
 }
-export function Field({ label, id, children }) {
+export function Field({
+  label,
+  id,
+  children,
+}: {
+  label: string;
+  id: string;
+  children: ReactNode;
+}) {
   return (
     <div className="field">
       <label htmlFor={id}>{label}</label>
@@ -15,7 +30,7 @@ export function Field({ label, id, children }) {
     </div>
   );
 }
-export function Stat({ label, value }) {
+export function Stat({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="stat">
       <span>{label}</span>
@@ -23,9 +38,9 @@ export function Stat({ label, value }) {
     </div>
   );
 }
-export const format = (value) =>
+export const format = (value: unknown): string =>
   typeof value === "number"
     ? Number.isFinite(value)
       ? Number(value.toFixed(4)).toString()
       : "—"
-    : (value ?? "—");
+    : String(value ?? "—");

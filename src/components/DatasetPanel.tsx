@@ -1,8 +1,9 @@
 /** Controlled dataset inputs. Generating rows and importing files belong to usePlayground. */
-import { DATASETS, MULTICLASS_DATASETS } from "../data/catalog.js";
-import { Field, Panel, Stat } from "./Panel.jsx";
+import { DATASETS, MULTICLASS_DATASETS } from "../data/catalog.ts";
+import type { DatasetId, PlaygroundProps } from "../types.ts";
+import { Field, Panel, Stat } from "./Panel.tsx";
 
-export default function DatasetPanel({ playground: p }) {
+export default function DatasetPanel({ playground: p }: PlaygroundProps) {
   const { config: c, dataset: d } = p;
   const options = DATASETS.filter(
     ([id]) => id.startsWith("regression") === (c.task === "regression"),
@@ -13,7 +14,9 @@ export default function DatasetPanel({ playground: p }) {
         <select
           id="dataset"
           value={c.dataset}
-          onChange={(e) => p.update({ dataset: e.target.value }, true)}
+          onChange={(e) =>
+            p.update({ dataset: e.target.value as DatasetId }, true)
+          }
         >
           {options.map(([id, label]) => (
             <option key={id} value={id}>
@@ -103,7 +106,7 @@ export default function DatasetPanel({ playground: p }) {
           type="file"
           accept=".csv,text/csv"
           onChange={(e) => {
-            p.importCsv(e.target.files[0]);
+            p.importCsv(e.target.files?.[0]);
             e.target.value = "";
           }}
         />

@@ -1,8 +1,43 @@
+/** Canvas draw callbacks use CSS-pixel coordinates; device-pixel scaling is applied by the effect. */
+interface CanvasChartProps {
+  label: string;
+  draw: (
+    ctx: CanvasRenderingContext2D,
+    w: number,
+    h: number,
+    view: ChartView,
+  ) => ChartPoint[] | void;
+  interactive?: boolean;
+  rotate?: boolean;
+  onSelect?: (index: number) => void;
+  height?: number;
+  resetKey?: unknown;
+}
+interface Gesture {
+  moved: boolean;
+  distance?: number;
+}
+import type { PointerEvent } from "react";
 import { useEffect, useRef, useState } from "react";
+import type { ChartPoint, ChartView } from "../types.ts";
 
 const INITIAL_VIEW = { zoom: 1, panX: 0, panY: 0, yaw: -0.65, pitch: 0.45 };
 
-/** The canvas is a React-owned leaf: effects draw pixels and clean up resize observers. */
+/**
+ * Own the canvas element while keeping numerical drawing outside React markup.
+ *
+ * ResizeObserver reports CSS-pixel dimensions. The draw effect sizes the backing
+ * store by devicePixelRatio and scales the context once, so renderers and hit
+ * coordinates can continue using CSS pixels on both normal and high-DPI displays.
+ * A canvas is a leaf: renderers draw pixels and never move React-owned DOM nodes.
+ *
+ * Pointer refs track transient gestures without rendering on every pointer-bookkeeping
+ * change. View changes use React state because they must redraw. Every observer and
+ * native wheel listener has effect cleanup, including React StrictMode remounts.
+ *
+ * Spatial renderers apply their own projection; ordinary charts use a context
+ * transform. Applying both would double the zoom/pan and invalidate hit testing.
+ */
 export default function CanvasChart({
   label,
   draw,
@@ -11,16 +46,17 @@ export default function CanvasChart({
   onSelect,
   height = 280,
   resetKey,
-}) {
-  const ref = useRef(null),
-    points = useRef([]),
-    pointers = useRef(new Map()),
-    gesture = useRef(null);
+}: CanvasChartProps) {
+  const ref = useRef<HTMLCanvasElement | null>(null),
+    points = useRef<ChartPoint[]>([]),
+    pointers = useRef(new Map<number, { x: number; y: number }>()),
+    gesture = useRef<Gesture | null>(null);
   const [view, setView] = useState(INITIAL_VIEW);
   const [size, setSize] = useState({ width: 600, height });
   useEffect(() => setView(INITIAL_VIEW), [resetKey]);
   useEffect(() => {
     const canvas = ref.current;
+    if (!canvas) return;
     const observer = new ResizeObserver(([entry]) =>
       setSize({
         width: entry.contentRect.width,
@@ -33,9 +69,11 @@ export default function CanvasChart({
   useEffect(() => {
     const canvas = ref.current,
       dpr = window.devicePixelRatio || 1;
+    if (!canvas) return;
     canvas.width = Math.max(1, Math.round(size.width * dpr));
     canvas.height = Math.max(1, Math.round(size.height * dpr));
     const ctx = canvas.getContext("2d");
+    if (!ctx) return;
     ctx.scale(dpr, dpr);
     ctx.fillStyle = "#091a2a";
     ctx.fillRect(0, 0, size.width, size.height);
@@ -51,7 +89,7 @@ export default function CanvasChart({
   // A native non-passive listener lets pinch/scroll stay inside the chart.
   useEffect(() => {
     const canvas = ref.current;
-    function wheel(event) {
+    function wheel(event: WheelEvent) {
       event.preventDefault();
       setView((v) =>
         event.ctrlKey
@@ -65,11 +103,19 @@ export default function CanvasChart({
           : { ...v, panX: v.panX - event.deltaX, panY: v.panY - event.deltaY },
       );
     }
+    if (!canvas) return;
     canvas.addEventListener("wheel", wheel, { passive: false });
     return () => canvas.removeEventListener("wheel", wheel);
   }, []);
-  /** Track pointer deltas; two fingers zoom, while one pointer pans or rotates the spatial projection. */
-  function move(event) {
+  /**
+   * Interpret pointer motion without mixing gesture bookkeeping with model state.
+   *
+   * Two active pointers scale the view by their distance ratio. One mouse pointer
+   * rotates a 3D projection unless Shift is held; other drags pan. Capture the prior
+   * pinch distance before the state updater runs rather than reading a mutable ref
+   * inside a deferred updater. None of these gestures changes training samples.
+   */
+  function move(event: PointerEvent<HTMLCanvasElement>) {
     const previous = pointers.current.get(event.pointerId);
     if (!previous) return;
     pointers.current.set(event.pointerId, {
@@ -83,15 +129,16 @@ export default function CanvasChart({
     if (pointers.current.size === 2) {
       const [a, b] = pointers.current.values(),
         distance = Math.hypot(a.x - b.x, a.y - b.y);
-      if (gesture.current?.distance)
+      const previousDistance = gesture.current?.distance;
+      if (previousDistance)
         setView((v) => ({
           ...v,
           zoom: Math.max(
             0.5,
-            Math.min(8, (v.zoom * distance) / gesture.current.distance),
+            Math.min(8, (v.zoom * distance) / previousDistance),
           ),
         }));
-      gesture.current.distance = distance;
+      if (gesture.current) gesture.current.distance = distance;
     } else
       setView((v) =>
         rotate && !event.shiftKey && event.pointerType !== "touch"
@@ -106,12 +153,12 @@ export default function CanvasChart({
       );
   }
   /** Treat a gesture as selection only when the pointer did not move; choose the nearest plotted sample. */
-  function release(event) {
+  function release(event: PointerEvent<HTMLCanvasElement>) {
     if (!gesture.current?.moved && onSelect) {
-      const rect = ref.current.getBoundingClientRect(),
+      const rect = event.currentTarget.getBoundingClientRect(),
         x = event.clientX - rect.left,
         y = event.clientY - rect.top;
-      let nearest = null;
+      let nearest: { index: number; distance: number } | null = null;
       for (const point of points.current) {
         const d = (x - point.x) ** 2 + (y - point.y) ** 2;
         if (!nearest || d < nearest.distance)
@@ -166,7 +213,7 @@ export default function CanvasChart({
         onDoubleClick={() => setView(INITIAL_VIEW)}
         onPointerDown={(e) => {
           if (e.button !== 0) return;
-          ref.current.setPointerCapture(e.pointerId);
+          e.currentTarget.setPointerCapture(e.pointerId);
           pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
           gesture.current = { moved: false };
         }}

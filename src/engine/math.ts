@@ -1,4 +1,20 @@
-/** Box-Muller sampling and bounded sigmoid used throughout the models. */
+import type {
+  ClassTree,
+  LinearModel,
+  Matrix,
+  NaiveStatistics,
+  RegressionTree,
+  Sample,
+  Vector,
+} from "../types.ts";
+
+/**
+ * Draw one standard-normal variate with the Box-Muller transform.
+ *
+ * Uniform draws are retried when zero because log(0) is undefined. Math.random is
+ * appropriate for this educational simulation; it is not a reproducible seed or a
+ * cryptographic source. Tests therefore verify properties rather than exact draws.
+ */
 export function randn() {
   let u = 0,
     v = 0;
@@ -6,13 +22,16 @@ export function randn() {
   while (!v) v = Math.random();
   return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
 }
-export function sigmoid(z) {
+export function sigmoid(z: number): number {
   return 1 / (1 + Math.exp(-Math.max(-30, Math.min(30, z))));
 }
 
 // Pure numerical helpers shared by the model families.
 /** Name polynomial and pairwise interaction terms in the same order as their numeric values. */
-export function regressionFeatureNames(dimensions, degree) {
+export function regressionFeatureNames(
+  dimensions: number,
+  degree: number,
+): string[] {
   const names = [];
   for (let i = 0; i < dimensions; i++) {
     names.push(`x${i + 1}`);
@@ -25,8 +44,14 @@ export function regressionFeatureNames(dimensions, degree) {
         names.push(`x${i + 1}·x${j + 1}`);
   return names;
 }
-/** Expand each feature by degree and add pairwise interactions for nonlinear regression. */
-export function rawRegressionFeatures(x, degree) {
+/**
+ * Expand an input into polynomial powers and pairwise interactions.
+ *
+ * For degree 2 and x=[a,b], the order is [a,a^2,b,b^2,a*b]. The corresponding naming
+ * helper and fitted normalization must use this exact order. This is a selected
+ * basis, not all possible multivariate monomials of the requested degree.
+ */
+export function rawRegressionFeatures(x: Vector, degree: number): Vector {
   const values = [];
   for (let i = 0; i < x.length; i++) {
     values.push(x[i] || 0);
@@ -39,15 +64,21 @@ export function rawRegressionFeatures(x, degree) {
         values.push((x[i] || 0) * (x[j] || 0));
   return values;
 }
-/** Apply training-set centering and scaling to the expanded features of a new input. */
-export function regressionVector(model, x) {
+/**
+ * Map a new input through the basis and training-derived normalization.
+ *
+ * Each expanded coordinate becomes (phi_i(x)-mean_i)/scale_i. Using the stored
+ * training means/scales at prediction time is essential: recomputing them on a
+ * validation set would both leak information and change the meaning of learned w.
+ */
+export function regressionVector(model: LinearModel, x: Vector): Vector {
   const raw = rawRegressionFeatures(x, model.degree);
   return raw.map(
     (value, i) => (value - (model.means[i] || 0)) / (model.scales[i] || 1),
   );
 }
 /** Fisher-Yates shuffle on a copy; preserve the original dataset ordering for tables. */
-export function shuffleCopy(a) {
+export function shuffleCopy<T>(a: T[]): T[] {
   const r = a.slice();
   for (let i = r.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -56,7 +87,11 @@ export function shuffleCopy(a) {
   return r;
 }
 /** Measure Euclidean or Manhattan distance over all dimensions, padding absent coordinates with zero. */
-export function vecDist(a, b, metric = "euclidean") {
+export function vecDist(
+  a: Vector,
+  b: Vector,
+  metric: string = "euclidean",
+): number {
   let s = 0;
   if (metric === "manhattan") {
     for (let i = 0; i < a.length; i++) s += Math.abs((a[i] || 0) - (b[i] || 0));
@@ -65,25 +100,38 @@ export function vecDist(a, b, metric = "euclidean") {
   for (let i = 0; i < a.length; i++) s += ((a[i] || 0) - (b[i] || 0)) ** 2;
   return Math.sqrt(s);
 }
-/** Subtract the largest logit before exponentiation to keep normalization numerically stable. */
-export function softmax(z) {
+/**
+ * Normalize logits into probabilities using a numerically stable shift.
+ *
+ * softmax(z)_k = exp(z_k-max(z)) / sum_j exp(z_j-max(z)). Subtracting a common maximum
+ * leaves the mathematical distribution unchanged and avoids overflowing exp for
+ * large logits. The bounded exponent also keeps tiny probabilities representable.
+ */
+export function softmax(z: Vector): Vector {
   const m = Math.max(...z),
     e = z.map((v) => Math.exp(Math.max(-40, Math.min(40, v - m)))),
     s = e.reduce((a, b) => a + b, 0) || 1;
   return e.map((v) => v / s);
 }
 /** Count labels within a fixed class vocabulary, including classes absent from a sample. */
-export function classCounts(rows, k) {
-  const c = Array(k).fill(0);
+export function classCounts(rows: Sample[], k: number): Vector {
+  const c = Array<number>(k).fill(0);
   rows.forEach((d) => {
     if (d.y >= 0 && d.y < k) c[d.y]++;
   });
   return c;
 }
-/** K-means++ initialization favors points far from centers already selected. */
-export function initCentroids(rows, k) {
+/**
+ * Choose initial centers with k-means++ distance-weighted sampling.
+ *
+ * After one random center, each subsequent point is sampled in proportion to its
+ * squared distance from the nearest chosen center. This tends to spread centers
+ * without using target labels. Coincident points yield zero total distance; the
+ * fallback samples a row instead of dividing by zero or failing to terminate.
+ */
+export function initCentroids(rows: Sample[], k: number): Matrix {
   k = Math.min(Math.max(1, k), rows.length);
-  const out = [];
+  const out: Matrix = [];
   if (!rows.length) return out;
   out.push(rows[Math.floor(Math.random() * rows.length)].x.slice());
   while (out.length < k) {
@@ -103,17 +151,30 @@ export function initCentroids(rows, k) {
   return out;
 }
 /** Follow learned feature thresholds until reaching a classification leaf. */
-export function treeClassify(node, x) {
+export function treeClassify(node: ClassTree | null, x: Vector): number {
   while (node && !node.leaf)
     node = (x[node.feature] || 0) <= node.threshold ? node.left : node.right;
   return node?.pred ?? 0;
 }
-/** Fit a residual tree by minimizing within-leaf squared error, as used by boosting. */
-export function buildRegTree(rows, depth, maxDepth, minLeaf, features) {
+/**
+ * Fit a regression tree by greedy within-leaf squared-error reduction.
+ *
+ * Sort candidate feature values and move a split point through the sorted rows.
+ * Running sums and squared sums evaluate each side's SSE without recomputing its
+ * mean for every threshold. Stop at depth/sample limits or when no valid split
+ * exists. Leaves store the mean response, which can be a boosting residual.
+ */
+export function buildRegTree(
+  rows: Sample[],
+  depth: number,
+  maxDepth: number,
+  minLeaf: number,
+  features: number[],
+): RegressionTree {
   const mean = rows.reduce((s, r) => s + r.y, 0) / (rows.length || 1),
-    node = { leaf: true, value: mean };
+    node: RegressionTree = { leaf: true, value: mean };
   if (depth >= maxDepth || rows.length < 2 * minLeaf) return node;
-  let best = null;
+  let best: { f: number; t: number; score: number } | null = null;
   for (const f of features) {
     const sorted = rows.slice().sort((a, b) => a.x[f] - b.x[f]);
     let sum = rows.reduce((s, r) => s + r.y, 0),
@@ -153,21 +214,26 @@ export function buildRegTree(rows, depth, maxDepth, minLeaf, features) {
   };
 }
 /** Follow learned thresholds and return the mean response stored at a regression leaf. */
-export function treeValue(node, x) {
+export function treeValue(node: RegressionTree | null, x: Vector): number {
   while (node && !node.leaf)
     node = (x[node.feature] || 0) <= node.threshold ? node.left : node.right;
   return node?.value ?? 0;
 }
 /** Estimate priors and Gaussian, Bernoulli, or multinomial feature statistics per class. */
-export function createNaiveStats(rows, k, variant, alpha) {
+export function createNaiveStats(
+  rows: Sample[],
+  k: number,
+  variant: string,
+  alpha: number,
+): NaiveStatistics[] {
   const d = rows[0]?.x.length || 2;
   return Array.from({ length: k }, (_, c) => {
     const classRows = rows.filter((r) => r.y === c),
       count = classRows.length,
       n = count || 1,
-      mean = Array(d).fill(0),
-      varr = Array(d).fill(0),
-      counts = Array(d).fill(0);
+      mean = Array<number>(d).fill(0),
+      varr = Array<number>(d).fill(0),
+      counts = Array<number>(d).fill(0);
     for (let f = 0; f < d; f++) {
       mean[f] = classRows.reduce((s, r) => s + r.x[f], 0) / n;
       varr[f] = classRows.reduce((s, r) => s + (r.x[f] - mean[f]) ** 2, 0) / n;
@@ -203,7 +269,7 @@ export function createNaiveStats(rows, k, variant, alpha) {
   });
 }
 /** Evaluate diagonal Gaussian log-likelihood plus the class log-prior. */
-export function gaussianScore(x, st) {
+export function gaussianScore(x: Vector, st: NaiveStatistics): number {
   let v = Math.log(st.prior + 1e-12);
   for (let f = 0; f < x.length; f++)
     v -=
@@ -212,8 +278,15 @@ export function gaussianScore(x, st) {
         (x[f] - st.mean[f]) ** 2 / st.varr[f]);
   return v;
 }
-/** Gauss-Jordan elimination with pivoting returns both inverse and determinant for GMM densities. */
-export function invertMatrix(a) {
+/**
+ * Compute an inverse and determinant by pivoted Gauss-Jordan elimination.
+ *
+ * Augment A with the identity, choose a large available pivot in each column, and
+ * eliminate that column from the other rows. Row exchanges flip determinant sign;
+ * pivot products track its magnitude. A near-zero pivot returns null instead of
+ * amplifying a singular covariance into an unusable Gaussian likelihood.
+ */
+export function invertMatrix(a: Matrix): { inv: Matrix; det: number } | null {
   const n = a.length,
     m = a.map((r, i) =>
       r.slice().concat(Array.from({ length: n }, (_, j) => (i === j ? 1 : 0))),
@@ -239,8 +312,15 @@ export function invertMatrix(a) {
   }
   return { inv: m.map((r) => r.slice(n)), det };
 }
-/** Evaluate a multivariate Gaussian density with a numerical floor for nearly singular fits. */
-export function gaussianPdf(x, mu, cov) {
+/**
+ * Evaluate a multivariate Gaussian with a finite probability floor.
+ *
+ * The exponent uses the Mahalanobis quadratic form (x-mu)^T Sigma^-1 (x-mu), and the
+ * normalizer uses det(Sigma). A singular/nonpositive covariance returns the floor.
+ * GMM fitting separately regularizes covariance diagonals; this fallback prevents
+ * remaining numerical degeneracy from causing log(0) in the objective.
+ */
+export function gaussianPdf(x: Vector, mu: Vector, cov: Matrix): number {
   const inv = invertMatrix(cov);
   if (!inv || inv.det <= 1e-15) return 1e-300;
   const z = x.map((v, i) => v - mu[i]);
