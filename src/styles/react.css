@@ -11,6 +11,11 @@
 .settings-grid:has(> :nth-child(3)) {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
+.training-toolbar {
+  position: sticky;
+  top: 62px;
+  z-index: 1;
+}
 .header-description {
   margin-left: auto;
 }
@@ -202,9 +207,6 @@ summary:focus-visible {
   aside > p,
   aside > .note {
     display: none;
-  }
-  .training-toolbar {
-    position: static;
   }
   .main {
     min-width: 0;

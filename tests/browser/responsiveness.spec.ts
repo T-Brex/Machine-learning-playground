@@ -1,5 +1,28 @@
 import { expect, test } from "@playwright/test";
 
+test("simulation controls remain visible below the sticky header while scrolling", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 900, height: 600 });
+  await page.goto("/");
+  await page.evaluate(() => window.scrollTo(0, 500));
+
+  const toolbar = page.locator(".training-toolbar"),
+    header = page.locator(".top");
+  await expect(toolbar).toBeVisible();
+  await expect
+    .poll(async () => {
+      const [toolbarBox, headerBox] = await Promise.all([
+        toolbar.boundingBox(),
+        header.boundingBox(),
+      ]);
+      return toolbarBox && headerBox
+        ? Math.abs(toolbarBox.y - headerBox.y - headerBox.height)
+        : Infinity;
+    })
+    .toBeLessThan(2);
+});
+
 test("large solver jobs leave navigation, chart gestures and animation on the UI thread responsive", async ({
   page,
 }) => {
