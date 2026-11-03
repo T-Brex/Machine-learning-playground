@@ -1,3 +1,4 @@
+import { useTranslation } from "../i18n/Language.tsx";
 /** Canvas draw callbacks use CSS-pixel coordinates; device-pixel scaling is applied by the effect. */
 interface CanvasChartProps {
   label: string;
@@ -50,6 +51,8 @@ export default function CanvasChart({
   aspectRatio,
   resetKey,
 }: CanvasChartProps) {
+  const t = useTranslation();
+
   const ref = useRef<HTMLCanvasElement | null>(null),
     points = useRef<ChartPoint[]>([]),
     pointers = useRef(new Map<number, { x: number; y: number }>()),
@@ -90,9 +93,19 @@ export default function CanvasChart({
       ctx.scale(view.zoom, view.zoom);
       ctx.translate(-size.width / 2, -size.height / 2);
     }
-    points.current = draw(ctx, size.width, size.height, view) || [];
+    // Canvas labels use the same locale as React, without changing the numerical renderers.
+    const fillText = ctx.fillText;
+    ctx.fillText = function (text, x, y, maxWidth) {
+      if (maxWidth === undefined) fillText.call(this, t(text), x, y);
+      else fillText.call(this, t(text), x, y, maxWidth);
+    };
+    try {
+      points.current = draw(ctx, size.width, size.height, view) || [];
+    } finally {
+      ctx.fillText = fillText;
+    }
     ctx.restore();
-  }, [draw, size, view, interactive]);
+  }, [draw, size, view, interactive, t]);
   // Only Ctrl+wheel zooms the chart; ordinary wheel gestures scroll the page.
   useEffect(() => {
     const canvas = ref.current;
@@ -179,39 +192,39 @@ export default function CanvasChart({
         <button
           type="button"
           className="secondary"
-          aria-label={`Riduci zoom: ${label}`}
+          aria-label={t(`Riduci zoom: ${label}`)}
           onClick={() =>
             setView((v) => ({ ...v, zoom: Math.max(0.5, v.zoom * 0.8) }))
           }
         >
-          −
+          {t("−")}
         </button>
         <button
           type="button"
           className="secondary"
-          aria-label={`Aumenta zoom: ${label}`}
+          aria-label={t(`Aumenta zoom: ${label}`)}
           onClick={() =>
             setView((v) => ({ ...v, zoom: Math.min(8, v.zoom * 1.25) }))
           }
         >
-          +
+          {t("+")}
         </button>
         <button
           type="button"
           className="secondary"
           onClick={() => setView(INITIAL_VIEW)}
         >
-          Ripristina vista
+          {t("Ripristina vista")}
         </button>
         <span className="small muted">
-          Ctrl + rotellina / pinch: zoom · trascina
-          {rotate ? " per ruotare · Shift: sposta" : ": sposta"}
+          {t("Ctrl + rotellina / pinch: zoom · trascina")}
+          {t(rotate ? " per ruotare · Shift: sposta" : ": sposta")}
         </span>
       </div>
       <canvas
         ref={ref}
         role="img"
-        aria-label={label}
+        aria-label={t(label)}
         className="chart"
         style={{
           height: aspectRatio

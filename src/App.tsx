@@ -1,7 +1,9 @@
+import { useTranslation } from "./i18n/Language.tsx";
 /** Application composition: React conditionally mounts each page instead of moving DOM nodes. */
 import { useState } from "react";
 import DatasetPanel from "./components/DatasetPanel.tsx";
 import ThemeColors from "./components/ThemeColors.tsx";
+import LanguageSelector from "./components/LanguageSelector.tsx";
 import {
   DataChart,
   Histogram,
@@ -22,6 +24,8 @@ import { usePlayground } from "./hooks/usePlayground.ts";
 import type { PageId, TaskId } from "./types.ts";
 
 export default function App() {
+  const t = useTranslation();
+
   const [page, setPage] = useState<PageId>("home");
   const p = usePlayground(page);
   const settings = ["home", "data", "train", "method", "tutorial"].includes(
@@ -43,17 +47,18 @@ export default function App() {
           </svg>
         </div>
         <div>
-          <div className="brand">ML Playground</div>
-          <div className="sub">Sperimenta · Addestra · Visualizza</div>
+          <div className="brand">{t("ML Playground")}</div>
+          <div className="sub">{t("Sperimenta · Addestra · Visualizza")}</div>
         </div>
         <div className="header-description muted small">
-          Laboratorio interattivo di Machine Learning
+          {t("Laboratorio interattivo di Machine Learning")}
         </div>
         <ThemeColors />
+        <LanguageSelector />
       </header>
       <div className="layout">
         <aside>
-          <nav aria-label="Navigazione principale">
+          <nav aria-label={t("Navigazione principale")}>
             {NAVIGATION.map(([id, label]) => (
               <button
                 key={id}
@@ -61,21 +66,24 @@ export default function App() {
                 aria-current={page === id ? "page" : undefined}
                 onClick={() => setPage(id)}
               >
-                {label}
+                {t(label)}
               </button>
             ))}
           </nav>
-          <div className="asidehint">Come iniziare</div>
+          <div className="asidehint">{t("Come iniziare")}</div>
           <p className="small muted">
-            Scegli i dati, configura un algoritmo e avvia l’apprendimento.
-            Osserva pesi, bias e grafici.
+            {t(
+              "Scegli i dati, configura un algoritmo e avvia l’apprendimento. Osserva pesi, bias e grafici.",
+            )}
           </p>
           <div className="note">
-            Il modello modifica i parametri per ridurre una funzione di costo.
+            {t(
+              "Il modello modifica i parametri per ridurre una funzione di costo.",
+            )}
           </div>
         </aside>
         <main className="main">
-          <div className="tabs" aria-label="Tipo di problema">
+          <div className="tabs" aria-label={t("Tipo di problema")}>
             {(Object.entries(TASKS) as [TaskId, (typeof TASKS)[TaskId]][]).map(
               ([id, task]) => (
                 <button
@@ -84,7 +92,7 @@ export default function App() {
                   aria-pressed={p.config.task === id}
                   onClick={() => p.selectTask(id)}
                 >
-                  {task.label}
+                  {t(task.label)}
                 </button>
               ),
             )}
@@ -128,8 +136,9 @@ export default function App() {
             />
           )}
           <footer className="footer">
-            ML Playground · laboratorio didattico locale. Gli algoritmi
-            funzionano nel browser: nessun dato viene inviato a un server.
+            {t(
+              "ML Playground · laboratorio didattico locale. Gli algoritmi funzionano nel browser: nessun dato viene inviato a un server.",
+            )}
           </footer>
         </main>
       </div>

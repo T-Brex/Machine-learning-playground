@@ -1,3 +1,4 @@
+import { useTranslation } from "../i18n/Language.tsx";
 import { useEffect, useMemo, useState } from "react";
 import {
   classColor,
@@ -22,6 +23,8 @@ export default function DataChart({
   selected?: number;
   onSelect?: (index: number) => void;
 }) {
+  const t = useTranslation();
+
   const [hiddenSurfaces, setHiddenSurfaces] = useState<string[]>([]);
   const [surfaceOpacity, setSurfaceOpacity] = useState<Record<string, number>>(
     {},
@@ -97,14 +100,14 @@ export default function DataChart({
     );
 
   return (
-    <Panel title="Dati e previsione" className="data-plot">
+    <Panel title={t("Dati e previsione")} className="data-plot">
       <div className="plot-settings">
         {three && p.snapshot.fitted && boundaries.length > 0 && (
           <fieldset className="graph-control-group">
-            <legend>Confini e opacità</legend>
+            <legend>{t("Confini e opacità")}</legend>
             <div
               className="surface-controls"
-              aria-label="Visibilità dei confini"
+              aria-label={t("Visibilità dei confini")}
             >
               {boundaries.map(([key, classes]) => {
                 const name = regression
@@ -132,17 +135,17 @@ export default function DataChart({
                             : decisionSurfaceColor(classes, p.dataset.classes),
                         }}
                       />
-                      {name}
+                      {t(name)}
                     </label>
                     <label className="graph-opacity-control">
-                      <span>Opacità {Math.round(opacity * 100)}%</span>
+                      <span>{t(`Opacità ${Math.round(opacity * 100)}%`)}</span>
                       <input
                         type="range"
                         min="0"
                         max="100"
                         step="1"
                         value={Math.round(opacity * 100)}
-                        aria-label={`Opacità ${name.toLowerCase()}`}
+                        aria-label={t(`Opacità ${name.toLowerCase()}`)}
                         disabled={hiddenSurfaces.includes(key)}
                         onChange={(event) =>
                           setSurfaceOpacity((values) => ({
@@ -160,19 +163,19 @@ export default function DataChart({
         )}
 
         <fieldset className="graph-control-group">
-          <legend>Punti del dataset</legend>
+          <legend>{t("Punti del dataset")}</legend>
           <label className="graph-layer-toggle">
             <input
               type="checkbox"
               checked={showPoints}
               onChange={(event) => setShowPoints(event.target.checked)}
-              aria-label="Mostra tutti i punti"
+              aria-label={t("Mostra tutti i punti")}
             />
-            Mostra punti
+            {t("Mostra punti")}
           </label>
           <div
             className="point-controls"
-            aria-label="Visibilità dei gruppi di punti"
+            aria-label={t("Visibilità dei gruppi di punti")}
           >
             {pointSets.map((label) => (
               <label className="surface-toggle" key={label}>
@@ -181,10 +184,12 @@ export default function DataChart({
                   checked={!hiddenPointSets.includes(label)}
                   disabled={!showPoints}
                   onChange={() => togglePointSet(label)}
-                  aria-label={`Mostra punti ${pointName(label).toLowerCase()}`}
+                  aria-label={t(
+                    `Mostra punti ${pointName(label).toLowerCase()}`,
+                  )}
                 />
                 <span style={{ background: classColor(label) }} />
-                {pointName(label)}
+                {t(pointName(label))}
               </label>
             ))}
           </div>
@@ -195,21 +200,23 @@ export default function DataChart({
             className="graph-control-group region-controls"
             aria-busy={showRegions && !p.plot?.regionsRequested}
           >
-            <legend>Spazio classificato</legend>
+            <legend>{t("Spazio classificato")}</legend>
             <label className="graph-layer-toggle">
               <input
                 type="checkbox"
                 checked={showRegions}
                 onChange={(event) => setShowRegions(event.target.checked)}
-                aria-label="Evidenzia spazio classificato"
+                aria-label={t("Evidenzia spazio classificato")}
               />
-              Evidenzia lo spazio previsto per classe
+              {t("Evidenzia lo spazio previsto per classe")}
             </label>
             {showRegions && (
               <>
                 <label className="graph-opacity-control region-opacity">
                   <span>
-                    Opacità dello spazio {Math.round(regionOpacity * 100)}%
+                    {t(
+                      `Opacità dello spazio ${Math.round(regionOpacity * 100)}%`,
+                    )}
                   </span>
                   <input
                     type="range"
@@ -220,12 +227,12 @@ export default function DataChart({
                     onChange={(event) =>
                       setRegionOpacity(Number(event.target.value) / 100)
                     }
-                    aria-label="Opacità spazio classificato"
+                    aria-label={t("Opacità spazio classificato")}
                   />
                 </label>
                 <div
                   className="point-controls"
-                  aria-label="Visibilità delle regioni classificate"
+                  aria-label={t("Visibilità delle regioni classificate")}
                 >
                   {Array.from({ length: p.dataset.classes }, (_, label) => (
                     <label className="surface-toggle" key={label}>
@@ -239,22 +246,23 @@ export default function DataChart({
                               : [...values, label],
                           )
                         }
-                        aria-label={`Mostra spazio classe ${label + 1}`}
+                        aria-label={t(`Mostra spazio classe ${label + 1}`)}
                       />
                       <span style={{ background: classColor(label) }} />
-                      Classe {label + 1}
+                      {t(`Classe ${label + 1}`)}
                     </label>
                   ))}
                 </div>
                 {!p.plot?.regionsRequested && (
                   <p className="small muted" role="status">
-                    Calcolo delle regioni…
+                    {t("Calcolo delle regioni…")}
                   </p>
                 )}
                 {p.plot?.regions.some((region) => region.approximate) && (
                   <p className="small muted">
-                    Lo spazio dei modelli non lineari è mostrato con
-                    un’approssimazione campionata.
+                    {t(
+                      "Lo spazio dei modelli non lineari è mostrato con un’approssimazione campionata.",
+                    )}
                   </p>
                 )}
               </>
@@ -263,7 +271,7 @@ export default function DataChart({
         )}
       </div>
       <CanvasChart
-        label="Dati e previsione del modello"
+        label={t("Dati e previsione del modello")}
         interactive
         rotate={three}
         resetKey={p.dataset}
@@ -290,13 +298,15 @@ export default function DataChart({
         }
       />
       <p className="small muted">
-        {three
-          ? regression
-            ? "Punti = target osservati · superficie = previsione al target mediano. Assi = prime tre feature; le altre sono fissate alle medie del dataset."
-            : p.snapshot.clustering
-              ? "Colori = cluster assegnati · croci = centroidi. Assi = prime tre feature."
-              : "Superfici = confini di decisione. Lo spazio evidenziato mostra la classe prevista. Assi = prime tre feature; le altre sono fissate alle medie del dataset."
-          : "Punti = esempi · sfondo = regioni previste dal modello."}
+        {t(
+          three
+            ? regression
+              ? "Punti = target osservati · superficie = previsione al target mediano. Assi = prime tre feature; le altre sono fissate alle medie del dataset."
+              : p.snapshot.clustering
+                ? "Colori = cluster assegnati · croci = centroidi. Assi = prime tre feature."
+                : "Superfici = confini di decisione. Lo spazio evidenziato mostra la classe prevista. Assi = prime tre feature; le altre sono fissate alle medie del dataset."
+            : "Punti = esempi · sfondo = regioni previste dal modello.",
+        )}
       </p>
     </Panel>
   );

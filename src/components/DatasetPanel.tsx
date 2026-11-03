@@ -1,33 +1,36 @@
+import { useTranslation } from "../i18n/Language.tsx";
 /** Controlled dataset inputs. Generating rows and importing files belong to usePlayground. */
 import { DATASETS, MULTICLASS_DATASETS } from "../data/catalog.ts";
 import type { DatasetId, PlaygroundProps } from "../types.ts";
 import { Field, Panel } from "./Panel.tsx";
 
 export default function DatasetPanel({ playground: p }: PlaygroundProps) {
+  const t = useTranslation();
+
   const { config: c, dataset: d } = p;
   const options = DATASETS.filter(
     ([id]) => id.startsWith("regression") === (c.task === "regression"),
   );
   return (
     <Panel
-      title="Dataset"
+      title={t("Dataset")}
       className="dataset-panel"
       headerAside={
         <div className="dataset-summary">
           <span>
-            <b>{d.data.length}</b> campioni
+            <b>{t(d.data.length)}</b> {t("campioni")}
           </span>
           <span>
-            <b>{d.data[0]?.x.length}</b> feature
+            <b>{t(d.data[0]?.x.length)}</b> {t("feature")}
           </span>
           <span>
-            <b>{d.classes}</b> classi
+            <b>{t(d.classes)}</b> {t("classi")}
           </span>
         </div>
       }
     >
       <div className="dataset-source">
-        <Field id="dataset" label="Dataset di esempio">
+        <Field id="dataset" label={t("Dataset di esempio")}>
           <select
             id="dataset"
             value={c.dataset}
@@ -37,14 +40,14 @@ export default function DatasetPanel({ playground: p }: PlaygroundProps) {
           >
             {options.map(([id, label]) => (
               <option key={id} value={id}>
-                {label}
+                {t(label)}
               </option>
             ))}
           </select>
         </Field>
       </div>
       {MULTICLASS_DATASETS.includes(c.dataset) && (
-        <Field id="classCount" label="Numero di classi">
+        <Field id="classCount" label={t("Numero di classi")}>
           <select
             id="classCount"
             value={c.classCount}
@@ -53,18 +56,18 @@ export default function DatasetPanel({ playground: p }: PlaygroundProps) {
             }
           >
             {[2, 3, 4, 5, 6, 7, 8].map((n) => (
-              <option key={n}>{n}</option>
+              <option key={n}>{t(n)}</option>
             ))}
           </select>
         </Field>
       )}
       {d.imported && (
         <p className="dataset-description small muted">
-          CSV importato · ultima colonna = target
+          {t("CSV importato · ultima colonna = target")}
         </p>
       )}
       <div className="dataset-parameters">
-        <Field id="sampleCount" label="Campioni">
+        <Field id="sampleCount" label={t("Campioni")}>
           <input
             id="sampleCount"
             type="number"
@@ -75,7 +78,7 @@ export default function DatasetPanel({ playground: p }: PlaygroundProps) {
             onChange={(e) => p.update({ sampleCount: e.target.value }, true)}
           />
         </Field>
-        <Field id="featureCount" label="Feature">
+        <Field id="featureCount" label={t("Feature")}>
           <select
             id="featureCount"
             disabled={d.imported}
@@ -85,13 +88,13 @@ export default function DatasetPanel({ playground: p }: PlaygroundProps) {
             }
           >
             {[2, 3, 4, 5, 6, 7, 8].map((n) => (
-              <option key={n}>{n}</option>
+              <option key={n}>{t(n)}</option>
             ))}
           </select>
         </Field>
         <Field
           id="noise"
-          label={`Rumore dei dati · ${Number(c.noise).toFixed(2)}`}
+          label={t(`Rumore dei dati · ${Number(c.noise).toFixed(2)}`)}
         >
           <input
             id="noise"
@@ -105,8 +108,9 @@ export default function DatasetPanel({ playground: p }: PlaygroundProps) {
         </Field>
       </div>
       <p className="dataset-help small muted">
-        I modelli usano tutte le feature. La vista spaziale proietta le prime
-        due o tre.
+        {t(
+          "I modelli usano tutte le feature. La vista spaziale proietta le prime due o tre.",
+        )}
       </p>
       <div className="dataset-actions">
         <button
@@ -114,9 +118,9 @@ export default function DatasetPanel({ playground: p }: PlaygroundProps) {
           id="regen"
           onClick={() => p.update({}, true)}
         >
-          Rigenera dataset
+          {t("Rigenera dataset")}
         </button>
-        <Field id="csvFile" label="Carica CSV (opzionale)">
+        <Field id="csvFile" label={t("Carica CSV (opzionale)")}>
           <input
             id="csvFile"
             type="file"
@@ -129,8 +133,9 @@ export default function DatasetPanel({ playground: p }: PlaygroundProps) {
         </Field>
       </div>
       <p className="small muted">
-        Almeno due feature + target numerico. Intestazione facoltativa;
-        separatori: virgola, punto e virgola, tab.
+        {t(
+          "Almeno due feature + target numerico. Intestazione facoltativa; separatori: virgola, punto e virgola, tab.",
+        )}
       </p>
     </Panel>
   );

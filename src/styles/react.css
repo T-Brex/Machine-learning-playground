@@ -154,6 +154,26 @@ h3 {
 .theme-picker-menu button {
   width: 100%;
 }
+.language-picker {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 4px;
+  margin: 0;
+  color: var(--muted);
+}
+.language-picker select {
+  width: 100px;
+  padding: 4px 20px 4px 8px;
+  border: 0;
+  background: transparent;
+  font-size: 13px;
+  cursor: pointer;
+}
+.language-picker option {
+  background: var(--panel);
+  color: var(--text);
+}
 .field {
   min-width: 0;
 }
@@ -314,6 +334,22 @@ summary:focus-visible {
   }
 }
 @media (max-width: 700px) {
+  .top {
+    gap: 8px;
+    padding: 12px 16px;
+  }
+  .top .sub,
+  .theme-picker > summary > span,
+  .language-picker > svg {
+    display: none;
+  }
+  .top .brand {
+    font-size: 16px;
+  }
+  .language-picker select {
+    width: 88px;
+    padding-left: 4px;
+  }
   .layout {
     grid-template-columns: minmax(0, 1fr);
   }

@@ -1,3 +1,4 @@
+import { useTranslation } from "../i18n/Language.tsx";
 import { createContext, useContext, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 
@@ -48,6 +49,8 @@ const ThemeContext = createContext({
 export const useThemeColors = () => useContext(ThemeContext).colors;
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
+  const t = useTranslation();
+
   const [colors, setColors] = useState(readColors);
   useEffect(() => {
     const style = document.documentElement.style;
@@ -65,16 +68,18 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, [colors]);
   return (
     <ThemeContext.Provider value={{ colors, setColors }}>
-      {children}
+      {t(children)}
     </ThemeContext.Provider>
   );
 }
 
 export default function ThemeColors() {
+  const t = useTranslation();
+
   const { colors, setColors } = useContext(ThemeContext);
   return (
     <details className="theme-picker">
-      <summary aria-label="Personalizza colori">
+      <summary aria-label={t("Personalizza colori")}>
         <svg
           width="18"
           height="18"
@@ -90,23 +95,23 @@ export default function ThemeColors() {
           <circle cx="14.5" cy="7.5" r="1" />
           <circle cx="17" cy="11" r="1" />
         </svg>
-        <span>Colori</span>
+        <span>{t("Colori")}</span>
       </summary>
       <div className="theme-picker-menu">
         <label>
-          Primario
+          {t("Primario")}
           <input
             type="color"
-            aria-label="Colore primario"
+            aria-label={t("Colore primario")}
             value={colors.primary}
             onChange={(e) => setColors({ ...colors, primary: e.target.value })}
           />
         </label>
         <label>
-          Evidenziazione
+          {t("Evidenziazione")}
           <input
             type="color"
-            aria-label="Colore evidenziazione"
+            aria-label={t("Colore evidenziazione")}
             value={colors.highlight}
             onChange={(e) =>
               setColors({ ...colors, highlight: e.target.value })
@@ -118,7 +123,7 @@ export default function ThemeColors() {
           className="secondary"
           onClick={() => setColors(DEFAULT_COLORS)}
         >
-          Ripristina colori
+          {t("Ripristina colori")}
         </button>
       </div>
     </details>
