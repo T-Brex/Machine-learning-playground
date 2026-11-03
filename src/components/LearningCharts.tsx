@@ -66,7 +66,9 @@ export function DataChart({
         draw={(ctx, w, h, view) =>
           drawScatter(ctx, w, h, {
             dataset: p.dataset,
-            engine: p.engine,
+            plot: p.plot,
+            predictions: p.predictions,
+            centers: p.centers,
             snapshot: p.snapshot,
             view,
             selected,
@@ -163,6 +165,16 @@ export function NetworkPanel({ playground: p }: PlaygroundProps) {
         Blu: pesi positivi · arancione: pesi negativi · spessore proporzionale
         al valore assoluto. Ogni nodo mostra l’attivazione.
       </p>
+      {p.running && (
+        <p className="small muted">
+          La superficie loss e i gradienti dettagliati si aggiornano in pausa o
+          al termine del training
+          {p.diagnosticsIteration === null
+            ? ""
+            : ` ? ultimo passo ${p.diagnosticsIteration}`}
+          .
+        </p>
+      )}
       {diagnostics && (
         <>
           <h3>Superficie loss · due pesi della rete</h3>

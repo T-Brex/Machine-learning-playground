@@ -22,7 +22,7 @@ import type { PageId, TaskId } from "./types.ts";
 
 export default function App() {
   const [page, setPage] = useState<PageId>("home");
-  const p = usePlayground();
+  const p = usePlayground(page);
   const settings = ["home", "data", "train", "method", "tutorial"].includes(
     page,
   );

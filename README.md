@@ -29,6 +29,7 @@ src/
   types.ts                      Shared configuration, model, snapshot, and chart contracts
   components/                   Dataset, model, training, chart, tutorial, and result views
   hooks/usePlayground.ts         Experiment state, CSV loading, timer lifecycle, pause/resume
+  hooks/useSolver.ts             Worker lifecycle, commands, asynchronous predictions, frame commits
   data/
     catalog.ts                  Compatible tasks, algorithms, dataset names
     datasets.ts                 Synthetic dataset generators
@@ -39,16 +40,27 @@ src/
     math.ts                     Shared numerical and statistical helpers
     neural.ts                   Forward pass, backpropagation, optimizer updates
     modelGuards.ts              Runtime model invariants and safe union narrowing
+    modelParameters.ts          Bounded parameter table prepared inside the worker
     trees.ts                    Classification tree construction
     learningInspection.ts       Numerical tutorial traces and visualization descriptions
     charts.ts                   Canvas drawing functions, with explicit data inputs
   styles/                       Shared appearance and responsive component layouts
+  solver/
+    solver.worker.ts            Separate browser worker entry point
+    runtime.ts                  Training slices, throttled display frames, pause/resume
+    protocol.ts                 Typed messages and cached presentation data
 tests/
   engine.test.ts                Numerical and import regression coverage
+  solver.test.ts                Worker scheduling, frame backpressure, cancellation, restart
   browser/playground.spec.ts    End-to-end user workflow
+  browser/responsiveness.spec.ts Large-fit navigation, chart zoom, animation, and reset coverage
 ```
 
-React owns the UI and settings. `usePlayground` creates an isolated engine per experiment and cancels its training timer when settings change or the component unmounts. The engine has no DOM or React dependency, so algorithms can be tested directly in Node. Canvas components draw through effects and release their observers and listeners on unmount.
+React owns the UI and settings. `usePlayground` delegates numerical work to `useSolver`, which creates a dedicated Web Worker per experiment. Settings changes, reset, and unmount terminate the old worker, including an expensive epoch already in progress. Pause preserves its model and optimizer state at an epoch boundary. The engine has no DOM or React dependency, so algorithms can still be tested directly in Node.
+
+Training, prediction-grid sampling, tutorial calculations, and neural diagnostics run in the worker. Canvas components only project cached results and draw pixels, so dragging or zooming does not trigger synchronous inference. Display frames are capped at eight per second, with at most one frame awaiting a React commit; training continues independently without queuing obsolete renders. Models, forests, and training caches remain in the worker. Messages contain metrics, sampled surfaces, row predictions, and a bounded parameter table.
+
+Live loss histories and network activations update during training. Exact neural loss surfaces and detailed gradient tables refresh on pause, single-step, or completion, since evaluating those surfaces requires hundreds of full-batch gradients. Their last computed iteration is identified while training. Canvas observers/listeners and worker resources are released on unmount.
 
 The project uses strict TypeScript throughout, including the numerical engine, React components, Vite configuration, and Playwright tests. `npm run dev` serves the app; `npm run typecheck` checks types without emitting files, and production builds perform that check automatically.
 

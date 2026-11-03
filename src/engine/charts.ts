@@ -1,5 +1,7 @@
+import type { PredictionGrid } from "../solver/protocol.ts";
 import type {
   ChartView,
+  Matrix,
   Dataset,
   NeuralDiagnostics,
   NeuralVisualization,
@@ -176,14 +178,18 @@ export function drawScatter(
   h: number,
   {
     dataset,
-    engine,
+    plot,
+    predictions,
+    centers,
     snapshot,
     view,
     selected = -1,
     hiddenClasses = [],
   }: {
     dataset: Dataset;
-    engine: ReturnType<typeof import("./createEngine.ts").createEngine>;
+    plot: PredictionGrid | null;
+    predictions: Vector;
+    centers: Matrix;
     snapshot: Snapshot;
     view: ChartView;
     selected?: number;
@@ -232,18 +238,25 @@ export function drawScatter(
         view.panY,
     ];
   };
-  if (snapshot.fitted && !three) {
-    const step = 10;
-    for (let px = 58; px < w - 18; px += step)
-      for (let py = 24; py < h - 44; py += step) {
-        const x = visibleX(px),
-          y = visibleY(py);
-        const pred = engine.predict([x, y]);
-        ctx.fillStyle = snapshot.regression
-          ? `hsl(${220 - Math.max(0, Math.min(1, (pred + 5) / 10)) * 180} 50% 23%)`
-          : classColor(pred) + "35";
-        ctx.fillRect(px, py, step, step);
-      }
+  // Cells were evaluated in the worker. Reprojecting cached world-space data
+  // keeps gestures independent of solver speed, with no inference during draw.
+  if (snapshot.fitted && !three && plot) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(58, 24, plotWidth, plotHeight);
+    ctx.clip();
+    for (const cell of plot.cells) {
+      const [x, y] = project(cell.input);
+      const [right, top] = project([
+        cell.input[0] + plot.stepX,
+        cell.input[1] + plot.stepY,
+      ]);
+      ctx.fillStyle = snapshot.regression
+        ? `hsl(${220 - Math.max(0, Math.min(1, (cell.value + 5) / 10)) * 180} 50% 23%)`
+        : classColor(cell.value) + "35";
+      ctx.fillRect(x, top, right - x + 1, y - top + 1);
+    }
+    ctx.restore();
   }
   if (three) {
     const origin = project([0, 0, 0]);
@@ -260,24 +273,18 @@ export function drawScatter(
       ctx.fillStyle = "#b9d6f5";
       ctx.fillText(`x${i + 1}`, p[0], p[1]);
     });
-    // Translucent prediction slices help inspect a learned boundary in 3D.
-    if (snapshot.fitted) {
+    // The worker samples these slices once per published model, rather than
+    // evaluating a fresh network/kernel for every pixel of every pointer move.
+    if (snapshot.fitted && plot) {
       ctx.globalAlpha = 0.15;
-      for (let k = 0; k < 3; k++)
-        for (let i = 0; i < 15; i++)
-          for (let j = 0; j < 15; j++) {
-            const x = [
-              min[0] + ((max[0] - min[0]) * i) / 14,
-              min[1] + ((max[1] - min[1]) * j) / 14,
-              min[2] + ((max[2] - min[2]) * k) / 2,
-              ...Array<number>(Math.max(0, rows[0].x.length - 3)).fill(0),
-            ];
-            const label = engine.predict(x);
-            if (hiddenClasses.includes(label)) continue;
-            const [px, py] = project(x);
-            ctx.fillStyle = classColor(label);
-            ctx.fillRect(px, py, 7 * view.zoom, 7 * view.zoom);
-          }
+      for (const cell of plot.cells) {
+        if (hiddenClasses.includes(cell.value)) continue;
+        const [x, y] = project(cell.input);
+        ctx.fillStyle = snapshot.regression
+          ? `hsl(${220 - Math.max(0, Math.min(1, (cell.value + 5) / 10)) * 180} 50% 40%)`
+          : classColor(cell.value);
+        ctx.fillRect(x, y, 7 * view.zoom, 7 * view.zoom);
+      }
       ctx.globalAlpha = 1;
     }
   } else
@@ -297,7 +304,9 @@ export function drawScatter(
     .sort((a, b) => (a.row.x[2] || 0) - (b.row.x[2] || 0))
     .forEach(({ row, index, p }) => {
       const label =
-        snapshot.clustering && snapshot.fitted ? engine.predict(row.x) : row.y;
+        snapshot.clustering && snapshot.fitted
+          ? (predictions[index] ?? -1)
+          : row.y;
       ctx.fillStyle = snapshot.regression
         ? `hsl(${220 - Math.max(0, Math.min(1, (row.y + 5) / 10)) * 180} 80% 66%)`
         : classColor(label);
@@ -312,12 +321,6 @@ export function drawScatter(
         ctx.stroke();
       }
     });
-  const centers =
-    snapshot.model?.kind === "kmeans"
-      ? snapshot.model.centroids
-      : snapshot.model?.kind === "gmm"
-        ? snapshot.model.means
-        : [];
   centers.forEach((center, i: number) => {
     const [x, y] = project(center);
     ctx.strokeStyle = classColor(i);

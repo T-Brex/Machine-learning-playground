@@ -1,13 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { MULTICLASS_DATASETS, TASKS } from "../data/catalog.ts";
 import { parseCsv } from "../data/csv.ts";
 import { generateDataset } from "../data/datasets.ts";
 import { defaultParameters } from "../data/methods.ts";
-import { createEngine } from "../engine/createEngine.ts";
+import { useSolver } from "./useSolver.ts";
 import type {
   Configuration,
   MethodId,
   ParameterValue,
+  PageId,
   TaskId,
 } from "../types.ts";
 
@@ -25,50 +26,34 @@ const INITIAL: Configuration = {
 };
 
 /**
- * Bridge React state to one imperative numerical experiment.
- *
- * Configuration and dataset changes replace the memoized engine. Epoch updates
- * mutate that engine and increment revision so React reads a fresh snapshot. This
- * keeps large numerical matrices out of component state while preserving explicit
- * render updates. Running state controls a cleanup-managed timer, so page changes
- * can share progress while settings changes and unmounts cancel obsolete work.
- *
- * The returned controller is also the source of the Playground prop type. Keeping
- * that type derived prevents component callbacks from drifting from this API.
+ * Own experiment settings and delegate every numerical operation to useSolver.
+ * The worker persists across navigation and is replaced on configuration/data
+ * changes. The synchronous facade below only reads the latest committed display
+ * frame: it never fits, predicts, or computes gradients on the main thread.
  */
-export function usePlayground() {
+export function usePlayground(page: PageId) {
   const [config, setConfig] = useState(INITIAL);
   const [dataset, setDataset] = useState(() => generateDataset(INITIAL));
-  const [revision, setRevision] = useState(0);
-  const [running, setRunning] = useState(false);
   const [error, setError] = useState("");
   const [resetKey, setResetKey] = useState(0);
-  const engine = useMemo(
-    () => createEngine(dataset, config),
-    [dataset, config, resetKey],
-  );
-  const snapshot = useMemo(() => engine.snapshot(), [engine, revision]);
+  const solver = useSolver(dataset, config, page, resetKey);
+  const frame = solver.frame,
+    snapshot = frame.snapshot;
   const fileRequest = useRef(0);
-
-  // An experiment change or unmount cancels its pending timer, including StrictMode remounts.
-  useEffect(() => {
-    if (!running) return;
-    const timer = setInterval(() => {
-      try {
-        const current = engine.snapshot();
-        if (current.iteration >= current.total) {
-          setRunning(false);
-          return;
-        }
-        engine.step();
-        setRevision((value) => value + 1);
-      } catch (cause) {
-        setError(cause instanceof Error ? cause.message : String(cause));
-        setRunning(false);
-      }
-    }, 16);
-    return () => clearInterval(timer);
-  }, [engine, running]);
+  const engine = useMemo(
+    () => ({
+      snapshot: () => snapshot,
+      predict: (input: number[]) =>
+        frame.predictions[dataset.data.findIndex((row) => row.x === input)] ??
+        NaN,
+      trace: () => frame.trace,
+      neuralVisualization: () => frame.neural,
+      neuralDiagnostics: () => frame.diagnostics,
+      visualization: (index: number) =>
+        frame.inspectionIndex === index ? frame.inspection : null,
+    }),
+    [frame, snapshot, dataset],
+  );
 
   /**
    * Replace experiment settings and optionally generate new synthetic rows.
@@ -80,7 +65,7 @@ export function usePlayground() {
    */
   function update(patch: Partial<Configuration>, regenerate = false) {
     fileRequest.current++;
-    setRunning(false);
+    solver.cancel();
     setError("");
     const next = { ...config, ...patch };
     if (
@@ -105,7 +90,7 @@ export function usePlayground() {
       dataset: task === "regression" ? "regression" : "linear",
     };
     fileRequest.current++;
-    setRunning(false);
+    solver.cancel();
     setError("");
     setConfig(next);
     setDataset(generateDataset(next));
@@ -122,7 +107,7 @@ export function usePlayground() {
   async function importCsv(file: File | undefined) {
     if (!file) return;
     const request = ++fileRequest.current;
-    setRunning(false);
+    solver.pause();
     try {
       const imported = parseCsv(
         await file.text(),
@@ -149,45 +134,31 @@ export function usePlayground() {
         setError(cause instanceof Error ? cause.message : String(cause));
     }
   }
-  /** Commit exactly one numerical update and request a React snapshot refresh. */
-  function step() {
-    try {
-      engine.step();
-      setRevision((value) => value + 1);
-      setError("");
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
-    }
-  }
-  /**
-   * Resume remaining work or replace an already completed experiment.
-   *
-   * The engine itself does not schedule callbacks. Setting running starts the effect's
-   * timer, and effect cleanup cancels it on engine replacement or unmount. Completed
-   * runs increment resetKey so a new model/split is created before the next tick;
-   * paused runs retain their exact model and optimizer buffers.
-   */
-  function train() {
-    if (snapshot.issue) return;
-    if (snapshot.iteration >= snapshot.total) setResetKey((value) => value + 1);
-    setError("");
-    setRunning(true);
-  }
   return {
     config,
     dataset,
     engine,
     snapshot,
-    running,
-    error,
+    running: solver.running,
+    ready: solver.ready,
+    busy: solver.busy,
+    plot: frame.plot,
+    predictions: frame.predictions,
+    parameters: frame.parameters,
+    centers: frame.centers,
+    diagnosticsIteration: frame.diagnosticsIteration,
+    predict: solver.predict,
+    inspect: solver.inspect,
+    error: error || solver.error,
     update,
     selectTask,
     importCsv,
-    step,
-    train,
-    pause: () => setRunning(false),
+    step: solver.step,
+    train: solver.train,
+    pause: solver.pause,
     reset: () => {
-      setRunning(false);
+      solver.cancel();
+      fileRequest.current++;
       setResetKey((value) => value + 1);
       setError("");
     },

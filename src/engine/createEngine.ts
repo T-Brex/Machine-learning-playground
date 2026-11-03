@@ -1323,7 +1323,7 @@ export function createEngine(dataset: Dataset, settings: Configuration) {
    * fitting so tutorial comparisons describe a real before/after step. They must not
    * compare two references to the same arrays after those arrays have been mutated.
    *
-   * Scheduling, pause/resume, and cancellation live in usePlayground, not this method.
+   * Scheduling, pause/resume, and cancellation live in the solver worker runtime, not this method.
    */
   function trainOne() {
     if (!engine.model || engine.id !== methodId()) engineInit();

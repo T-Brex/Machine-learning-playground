@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { METHOD_LABELS } from "../data/catalog.ts";
 import { METHOD_INFO } from "../data/methods.ts";
 import type { PlaygroundProps } from "../types.ts";
@@ -14,14 +14,19 @@ import { Field, format, Panel } from "./Panel.tsx";
  * assuming the shuffled arrays have matching positions. Validation-only chart points
  * are intentionally excluded from training-sample selection.
  *
- * Memoize trace/visualization work by engine identity, completed iteration, and sample
- * selection. Navigating an explanation changes presentation state, while the real-step
+ * The worker computes trace/visualization data; React reads cached responses keyed
+ * by completed iteration and sample selection. Navigating an explanation changes presentation state, while the real-step
  * button delegates to the shared controller and actually advances the model.
  */
 export default function Tutorial({ playground: p }: PlaygroundProps) {
   const [position, setPosition] = useState(0),
     [query, setQuery] = useState("1"),
     [selected, setSelected] = useState(0);
+  // Selection requests are asynchronous; render only the worker response for
+  // this index. No tutorial surface or model calculation runs during React render.
+  useEffect(() => {
+    if (p.ready) p.inspect(selected);
+  }, [p.inspect, selected, p.dataset, p.config, p.ready]);
   const trace = useMemo(
     () => p.engine.trace(),
     [p.engine, p.snapshot.iteration],
@@ -93,7 +98,9 @@ export default function Tutorial({ playground: p }: PlaygroundProps) {
         </button>
         <button
           className="secondary"
-          disabled={p.running || Boolean(p.snapshot.issue)}
+          disabled={
+            !p.ready || p.busy || p.running || Boolean(p.snapshot.issue)
+          }
           onClick={p.step}
         >
           ▶ Esegui un passo reale nel playground

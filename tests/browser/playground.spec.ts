@@ -7,11 +7,15 @@ test("training, cancellation, task switching, tutorial, CSV and mobile navigatio
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/");
   await expect(page.getByText("ML Playground", { exact: true })).toBeVisible();
+  // Worker training is much faster than the old frame-paced loop. Use a long
+  // run so this test deliberately exercises pause/resume rather than completion.
+  await page.locator("#methodParam_epochs").fill("2000");
   await page.locator("#step").click();
   await expect(page.locator("#status")).toContainText("passo 1 /");
   await page.locator("#train").click();
   await expect(page.locator("#trainingPause")).toBeEnabled();
   await page.locator("#trainingPause").click();
+  await expect(page.locator("#trainingPause")).toBeDisabled();
   // Let more than one training interval elapse: a paused timer must publish no
   // additional iterations, even though the numerical model is retained to resume.
   const paused = await page.locator("#status").textContent();
