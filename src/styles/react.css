@@ -1,0 +1,154 @@
+/* Layout belongs to React components; canvas drawing is confined to chart leaves. */
+.settings-grid,
+.content-grid,
+.reference-grid {
+  display: grid;
+  gap: 12px;
+  margin: 12px 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+}
+.settings-grid:has(> :nth-child(3)) {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.header-description {
+  margin-left: auto;
+}
+.field {
+  min-width: 0;
+}
+.full {
+  width: 100%;
+  margin-top: 12px;
+}
+.react-chart {
+  min-width: 0;
+  margin: 8px 0 16px;
+}
+.react-chart canvas {
+  display: block;
+  width: 100%;
+  border-radius: 6px;
+  cursor: grab;
+}
+.react-chart canvas:active {
+  cursor: grabbing;
+}
+.metrics {
+  flex-wrap: wrap;
+}
+.metrics .stat {
+  flex: 1 1 160px;
+  overflow-wrap: anywhere;
+}
+.stat b {
+  white-space: normal;
+}
+pre {
+  font:
+    12px/1.7 ui-monospace,
+    Consolas,
+    monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-width: 100%;
+  color: #d4e6fa;
+}
+details {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+summary {
+  cursor: pointer;
+  color: #bad7f6;
+  font-weight: 600;
+}
+.formula {
+  font-size: 15px;
+  line-height: 1.9;
+  overflow-wrap: anywhere;
+}
+.formula-symbol {
+  border-bottom: 1px dotted #6b96c8;
+  cursor: help;
+}
+.tutorial-progress button.active {
+  background: #1268ce;
+  border-color: #80bbff;
+}
+.tutorial-actions {
+  flex-wrap: wrap;
+}
+.error {
+  color: #ff9caa;
+  padding: 8px;
+  border: 1px solid #ff657a;
+  border-radius: 6px;
+  flex-basis: 100%;
+}
+.selected-sample {
+  background: #173a60;
+}
+.sample-button {
+  padding: 2px 8px;
+  font-size: 12px;
+}
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+summary:focus-visible {
+  outline: 2px solid #89c4ff;
+  outline-offset: 3px;
+}
+@media (max-width: 1200px) {
+  .settings-grid:has(> :nth-child(3)) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .settings-grid > :nth-child(3) {
+    grid-column: 1/-1;
+  }
+}
+@media (max-width: 700px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .main {
+    padding: 9px;
+  }
+  .settings-grid,
+  .content-grid,
+  .reference-grid,
+  .settings-grid:has(> :nth-child(3)) {
+    grid-template-columns: 1fr;
+  }
+  .header-description {
+    display: none;
+  }
+  .layout > aside {
+    display: block;
+    padding: 8px;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+  aside nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  aside nav button {
+    width: auto;
+    font-size: 12px;
+    margin: 0;
+  }
+  aside > .asidehint,
+  aside > p,
+  aside > .note {
+    display: none;
+  }
+  .training-toolbar {
+    position: static;
+  }
+  .main {
+    min-width: 0;
+  }
+}
