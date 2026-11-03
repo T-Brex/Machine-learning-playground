@@ -55,6 +55,12 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     style.setProperty("--accent", colors.highlight);
     style.setProperty("--primary-ink", ink(colors.primary));
     style.setProperty("--accent-ink", ink(colors.highlight));
+    style.setProperty(
+      "--primary-text",
+      ink(colors.primary) === "#ffffff"
+        ? `color-mix(in srgb, ${colors.primary}, white 60%)`
+        : colors.primary,
+    );
     document.cookie = `${COOKIE}=${encodeURIComponent(JSON.stringify(colors))}; Max-Age=31536000; Path=/; SameSite=Lax${location.protocol === "https:" ? "; Secure" : ""}`;
   }, [colors]);
   return (

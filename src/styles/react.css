@@ -33,7 +33,7 @@
   font:
     400 13px Consolas,
     monospace;
-  color: var(--text);
+  color: var(--primary-text);
 }
 .plot-settings {
   display: flex;
@@ -213,7 +213,8 @@ summary {
   overflow-wrap: anywhere;
 }
 .formula-symbol {
-  border-bottom: 1px dotted #6f8b85;
+  color: var(--primary-text);
+  border-bottom: 1px dotted var(--primary);
   cursor: help;
 }
 .tutorial-progress button.active {
@@ -251,7 +252,7 @@ summary {
 .graph-control-group legend {
   padding: 0 4px;
   font-size: 12px;
-  color: #b6c0c3;
+  color: var(--accent);
   font-weight: 600;
 }
 .graph-control-group .surface-controls {

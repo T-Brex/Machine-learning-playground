@@ -1,4 +1,4 @@
-/* Scientific workbench: graphite surfaces and one teal interaction accent. */
+/* Flat workbench surfaces with customizable primary and selection colors. */
 :root {
   --bg: #141719;
   --panel: #1b1f21;
@@ -8,8 +8,12 @@
   --primary: #54cbbb;
   --accent: #76ddcd;
   --primary-ink: #101415;
+  --primary-text: #54cbbb;
   --accent-ink: #101415;
   --primary-hover: color-mix(in srgb, var(--primary), white 18%);
+  --primary-border: color-mix(in srgb, var(--primary) 32%, var(--line));
+  --accent-border: color-mix(in srgb, var(--accent) 32%, var(--line));
+  --accent-control: color-mix(in srgb, var(--accent) 12%, var(--panel));
   --accent-soft: color-mix(in srgb, var(--accent) 15%, transparent);
   color-scheme: dark;
 }
@@ -46,14 +50,14 @@ button:hover {
   background: var(--primary-hover);
 }
 button.secondary {
-  background: #252c2f;
-  border-color: var(--line);
+  background: var(--accent-control);
+  border-color: var(--accent-border);
   color: var(--text);
 }
 button.secondary:hover:not(:disabled),
 aside button:hover:not(:disabled),
 .tabs button:hover:not(:disabled) {
-  background: #303a3d;
+  background: color-mix(in srgb, var(--accent) 24%, var(--panel));
   color: var(--text);
 }
 button:disabled {
@@ -66,7 +70,7 @@ select {
   width: 100%;
   min-width: 0;
   padding: 8px;
-  border: 1px solid #414b4f;
+  border: 1px solid color-mix(in srgb, var(--accent) 16%, var(--line));
   border-radius: 2px;
   color: var(--text);
   background: #151a1c;
@@ -95,7 +99,7 @@ label {
   align-items: center;
   gap: 12px;
   padding: 12px 24px;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--primary-border);
   background: #171b1d;
   position: sticky;
   top: 0;
@@ -103,9 +107,10 @@ label {
 }
 .logo {
   font-size: 25px;
-  color: var(--accent);
+  color: var(--primary);
 }
 .brand {
+  color: var(--primary-text);
   font-size: 18px;
   font-weight: 600;
 }
@@ -135,7 +140,7 @@ aside button {
   color: #b6c0c3;
 }
 aside button.active {
-  background: transparent;
+  background: var(--accent-soft);
   border-color: transparent;
   color: var(--accent);
   box-shadow: inset 2px 0 var(--accent);
@@ -161,10 +166,10 @@ aside button.active {
   border-color: transparent;
   border-radius: 0;
   padding: 12px 20px;
-  color: #b6c0c3;
+  color: var(--muted);
 }
 .tabs button.active {
-  background: transparent;
+  background: var(--accent-soft);
   border-color: transparent;
   border-bottom-color: var(--accent);
   color: var(--accent);
@@ -184,7 +189,10 @@ aside button.active {
   padding: 12px 0;
   font-size: 18px;
   font-weight: 500;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--accent-border);
+}
+.ph > span {
+  color: var(--text);
 }
 .pb {
   padding: 12px;
@@ -198,7 +206,7 @@ aside button.active {
 .note {
   padding: 8px 0 8px 12px;
   background: transparent;
-  border-left: 2px solid var(--line);
+  border-left: 2px solid var(--accent);
   border-radius: 0;
   color: #b6c0c3;
   font-size: 12px;
@@ -224,6 +232,7 @@ aside button.active {
   font-size: 12px;
 }
 .stat b {
+  color: var(--primary-text);
   display: block;
   font-size: 18px;
   margin-top: 4px;
@@ -254,7 +263,8 @@ aside button.active {
 }
 .data th,
 .weighttable th {
-  color: #b6c0c3;
+  color: var(--text);
+  background: var(--accent-control);
 }
 .data td:first-child,
 .data th:first-child,
@@ -303,6 +313,7 @@ aside button.active {
 }
 .training-toolbar-status {
   flex-basis: 100%;
+  color: var(--muted);
 }
 .chart-controls {
   display: flex;
