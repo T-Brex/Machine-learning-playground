@@ -8,12 +8,14 @@ import {
 } from "../engine/charts.ts";
 import type { PlaygroundProps } from "../types.ts";
 import CanvasChart from "./CanvasChart.tsx";
+import { useThemeColors } from "./ThemeColors.tsx";
 import { Panel, Stat, format } from "./Panel.tsx";
 
 export { default as DataChart } from "./DataChart.tsx";
 
 /** Choose the displayed validation metric from the actual task rather than the algorithm name. */
 export function LossCharts({ playground: p }: PlaygroundProps) {
+  const colors = useThemeColors();
   const s = p.snapshot,
     metric = s.regression ? "R²" : s.clustering ? "Purezza" : "Accuracy";
   return (
@@ -26,7 +28,13 @@ export function LossCharts({ playground: p }: PlaygroundProps) {
             ctx,
             w,
             h,
-            [{ values: s.losses, color: "#54cbbb", label: "Training loss" }],
+            [
+              {
+                values: s.losses,
+                color: colors.primary,
+                label: "Training loss",
+              },
+            ],
             { log: true, view },
           )
         }
@@ -40,8 +48,16 @@ export function LossCharts({ playground: p }: PlaygroundProps) {
             w,
             h,
             [
-              { values: s.trainHistory, color: "#54cbbb", label: "Training" },
-              { values: s.testHistory, color: "#b6c0c3", label: "Validazione" },
+              {
+                values: s.trainHistory,
+                color: colors.primary,
+                label: "Training",
+              },
+              {
+                values: s.testHistory,
+                color: colors.highlight,
+                label: "Validazione",
+              },
             ],
             { yLabel: `${metric} (%)`, view },
           )
@@ -63,13 +79,14 @@ export function LossCharts({ playground: p }: PlaygroundProps) {
 }
 /** Display the same loss history used by the epoch chart as a frequency distribution. */
 export function Histogram({ playground: p }: PlaygroundProps) {
+  const colors = useThemeColors();
   return (
     <Panel title="Distribuzione della loss">
       <CanvasChart
         label="Distribuzione della loss"
         interactive
         draw={(ctx, w, h, view) =>
-          drawHistogram(ctx, w, h, p.snapshot.losses, view)
+          drawHistogram(ctx, w, h, p.snapshot.losses, view, colors.primary)
         }
       />
     </Panel>

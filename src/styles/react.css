@@ -107,6 +107,53 @@ h3 {
 .header-description {
   margin-left: auto;
 }
+.theme-picker {
+  position: relative;
+  flex-shrink: 0;
+  padding: 0;
+  border: 0;
+}
+.theme-picker > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  list-style: none;
+  font-size: 13px;
+  font-weight: 400;
+}
+.theme-picker > summary::-webkit-details-marker {
+  display: none;
+}
+.theme-picker[open] > summary {
+  color: var(--accent);
+}
+.theme-picker-menu {
+  position: absolute;
+  top: calc(100% + 12px);
+  right: 0;
+  width: 224px;
+  padding: 16px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  box-shadow: 0 8px 24px #0004;
+}
+.theme-picker-menu label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.theme-picker-menu input[type="color"] {
+  width: 40px;
+  height: 28px;
+  padding: 2px;
+  cursor: pointer;
+}
+.theme-picker-menu button {
+  width: 100%;
+}
 .field {
   min-width: 0;
 }
@@ -170,9 +217,9 @@ summary {
   cursor: help;
 }
 .tutorial-progress button.active {
-  background: #54cbbb;
-  border-color: #76ddcd;
-  color: #102522;
+  background: var(--primary);
+  border-color: var(--accent);
+  color: var(--primary-ink);
 }
 .tutorial-actions {
   flex-wrap: wrap;
@@ -185,7 +232,7 @@ summary {
   flex-basis: 100%;
 }
 .selected-sample {
-  background: #203e39;
+  background: var(--accent-soft);
 }
 .sample-button {
   padding: 2px 8px;
@@ -254,7 +301,7 @@ button:focus-visible,
 input:focus-visible,
 select:focus-visible,
 summary:focus-visible {
-  outline: 2px solid #76ddcd;
+  outline: 2px solid var(--accent);
   outline-offset: 3px;
 }
 @media (max-width: 1200px) {
@@ -280,6 +327,9 @@ summary:focus-visible {
   }
   .header-description {
     display: none;
+  }
+  .theme-picker {
+    margin-left: auto;
   }
   .layout > aside {
     display: block;

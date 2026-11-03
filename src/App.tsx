@@ -1,6 +1,7 @@
 /** Application composition: React conditionally mounts each page instead of moving DOM nodes. */
 import { useState } from "react";
 import DatasetPanel from "./components/DatasetPanel.tsx";
+import ThemeColors from "./components/ThemeColors.tsx";
 import {
   DataChart,
   Histogram,
@@ -48,6 +49,7 @@ export default function App() {
         <div className="header-description muted small">
           Laboratorio interattivo di Machine Learning
         </div>
+        <ThemeColors />
       </header>
       <div className="layout">
         <aside>

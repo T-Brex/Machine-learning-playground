@@ -203,6 +203,7 @@ export function drawHistogram(
   h: number,
   losses: Vector,
   view?: ChartView,
+  color = COLORS[0],
 ) {
   const values = losses.filter(Number.isFinite),
     lo = Math.min(...values),
@@ -224,7 +225,7 @@ export function drawHistogram(
   );
   clipPlot(ctx, a);
   bins.forEach((n, i: number) => {
-    ctx.fillStyle = COLORS[0];
+    ctx.fillStyle = color;
     const start = values.length ? lo : 0,
       end = values.length ? hi + (hi === lo ? 1 : 0) : 1,
       binWidth = (end - start) / 12,

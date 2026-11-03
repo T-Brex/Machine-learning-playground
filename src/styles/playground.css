@@ -5,7 +5,12 @@
   --line: #343b3e;
   --text: #edf1f2;
   --muted: #a0abad;
-  --accent: #54cbbb;
+  --primary: #54cbbb;
+  --accent: #76ddcd;
+  --primary-ink: #101415;
+  --accent-ink: #101415;
+  --primary-hover: color-mix(in srgb, var(--primary), white 18%);
+  --accent-soft: color-mix(in srgb, var(--accent) 15%, transparent);
   color-scheme: dark;
 }
 * {
@@ -27,8 +32,8 @@ select {
 }
 button {
   border: 1px solid transparent;
-  background: #54cbbb;
-  color: #102522;
+  background: var(--primary);
+  color: var(--primary-ink);
   padding: 8px 12px;
   border-radius: 2px;
   cursor: pointer;
@@ -38,7 +43,7 @@ button {
     color 140ms ease-out;
 }
 button:hover {
-  background: #76ddcd;
+  background: var(--primary-hover);
 }
 button.secondary {
   background: #252c2f;
@@ -268,8 +273,8 @@ aside button.active {
   font-weight: 500;
   border-radius: 2px;
   padding: 4px 8px;
-  background: #203e39;
-  color: #76ddcd;
+  background: var(--accent-soft);
+  color: var(--accent);
 }
 .progress {
   height: 3px;
@@ -347,7 +352,7 @@ aside button.active {
   border-bottom: 1px solid var(--line);
 }
 .symbol-legend strong {
-  color: #76ddcd;
+  color: var(--accent);
   overflow-wrap: anywhere;
 }
 .symbol-legend span {
