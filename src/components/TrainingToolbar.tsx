@@ -10,9 +10,7 @@ export default function TrainingToolbar({ playground: p }: PlaygroundProps) {
         onClick={p.train}
         disabled={!p.ready || p.busy || p.running || Boolean(s.issue)}
       >
-        {s.iteration >= s.total
-          ? "↻ Riavvia simulazione"
-          : "▶ Avvia / Continua"}
+        {s.iteration >= s.total ? "Riavvia simulazione" : "Avvia / Continua"}
       </button>
       <button
         id="step"
@@ -20,7 +18,7 @@ export default function TrainingToolbar({ playground: p }: PlaygroundProps) {
         disabled={!p.ready || p.busy || p.running || Boolean(s.issue)}
         onClick={p.step}
       >
-        ⏭ Un passo alla volta
+        Un passo alla volta
       </button>
       <button
         id="trainingPause"
@@ -28,7 +26,7 @@ export default function TrainingToolbar({ playground: p }: PlaygroundProps) {
         disabled={!p.running}
         onClick={p.pause}
       >
-        ⏸ Pausa
+        Pausa
       </button>
       <div
         className="progress training-toolbar-progress"
@@ -47,7 +45,7 @@ export default function TrainingToolbar({ playground: p }: PlaygroundProps) {
         className="training-toolbar-status small muted"
         role="status"
       >
-        {(!p.ready ? "Preparazione solver?" : s.issue) ||
+        {(!p.ready ? "Preparazione solver…" : s.issue) ||
           `${p.running ? "Training in corso" : s.iteration >= s.total ? "Simulazione completata" : s.iteration ? "In pausa" : "Pronto"} · passo ${s.iteration} / ${s.total}`}
       </div>
       {p.error && (

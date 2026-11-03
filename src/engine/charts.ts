@@ -55,9 +55,9 @@ function axes(
     right = width - 18,
     top = 24,
     bottom = height - 44;
-  ctx.font = "10px system-ui";
-  ctx.fillStyle = "#9db6d4";
-  ctx.strokeStyle = "#234565";
+  ctx.font = "12px ui-monospace, Consolas, monospace";
+  ctx.fillStyle = "#a0abad";
+  ctx.strokeStyle = "#343b3e";
   ctx.lineWidth = 1;
   const x = (v: number) =>
       left + ((v - xMin) / (xMax - xMin || 1)) * (right - left),
@@ -145,7 +145,7 @@ export function drawLines(
     );
   }
   if (!clean.length) {
-    ctx.fillStyle = "#9db6d4";
+    ctx.fillStyle = "#a0abad";
     ctx.fillText(
       "Avvia il training per vedere le curve",
       a.left + 8,
@@ -296,8 +296,8 @@ export function drawScatter(
   }
   if (three) {
     const origin = project([0, 0, 0]);
-    ctx.strokeStyle = "#6b89a9";
-    ctx.font = "11px system-ui";
+    ctx.strokeStyle = "#6f7d81";
+    ctx.font = "12px ui-monospace, Consolas, monospace";
     [0, 1, 2].forEach((i: number) => {
       const end = [0, 0, 0];
       end[i] = max[i];
@@ -306,7 +306,7 @@ export function drawScatter(
       ctx.moveTo(...origin);
       ctx.lineTo(...p);
       ctx.stroke();
-      ctx.fillStyle = "#b9d6f5";
+      ctx.fillStyle = "#b6c0c3";
       ctx.fillText(`x${i + 1}`, p[0], p[1]);
     });
     // Project actual decision faces, not fixed-z prediction samples. Sort by
@@ -511,21 +511,21 @@ export function drawNetwork(
     ),
   );
   layers.forEach((layer, l: number) => {
-    ctx.fillStyle = "#b9d6f5";
+    ctx.fillStyle = "#b6c0c3";
     ctx.font = "12px system-ui";
     ctx.textAlign = "center";
     ctx.fillText(["Input", "Hidden · tanh", "Output"][l], point(l, 0).x, 20);
     layer.forEach((value, i: number) => {
       const { x, y } = point(l, i);
       ctx.beginPath();
-      ctx.fillStyle = "#123a65";
-      ctx.strokeStyle = "#80bbff";
+      ctx.fillStyle = "#252c2f";
+      ctx.strokeStyle = "#76ddcd";
       ctx.lineWidth = 1;
       ctx.arc(x, y, 15, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
       ctx.fillStyle = "#fff";
-      ctx.font = "10px system-ui";
+      ctx.font = "12px ui-monospace, Consolas, monospace";
       ctx.fillText(Number(value).toFixed(2), x, y + 3);
     });
   });

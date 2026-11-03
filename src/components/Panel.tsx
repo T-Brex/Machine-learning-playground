@@ -4,12 +4,20 @@ import type { HTMLAttributes, ReactNode } from "react";
 export function Panel({
   title,
   children,
+  headerAside,
   className = "",
   ...props
-}: HTMLAttributes<HTMLElement> & { title: string; children: ReactNode }) {
+}: HTMLAttributes<HTMLElement> & {
+  title: string;
+  children: ReactNode;
+  headerAside?: ReactNode;
+}) {
   return (
     <section className={`panel ${className}`} {...props}>
-      <div className="ph">{title}</div>
+      <div className="ph">
+        <span>{title}</span>
+        {headerAside}
+      </div>
       <div className="pb">{children}</div>
     </section>
   );

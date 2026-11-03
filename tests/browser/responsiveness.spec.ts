@@ -46,7 +46,7 @@ test("large solver jobs leave navigation, chart gestures and animation on the UI
   // Reset must terminate an expensive atomic epoch, not merely set a flag that
   // the blocked numerical loop cannot see until it eventually finishes.
   await page
-    .getByRole("button", { name: "⌂ Panoramica", exact: true })
+    .getByRole("button", { name: "Panoramica", exact: true })
     .click({ timeout: 1500 });
   await page.locator("#reset").click({ timeout: 1500 });
   await expect(page.locator("#train")).toBeEnabled({ timeout: 3000 });

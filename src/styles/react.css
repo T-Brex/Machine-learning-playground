@@ -3,13 +3,106 @@
 .content-grid,
 .reference-grid {
   display: grid;
-  gap: 12px;
-  margin: 12px 0;
+  gap: 24px;
+  margin: 24px 0;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: start;
 }
 .settings-grid:has(> :nth-child(3)) {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.settings-grid > :nth-child(3),
+.content-grid > .panel:has(canvas) {
+  grid-column: 1 / -1;
+}
+.dataset-panel > .pb,
+.model-panel > .pb {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.dataset-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--muted);
+}
+.dataset-summary b {
+  font:
+    400 13px Consolas,
+    monospace;
+  color: var(--text);
+}
+.plot-settings {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: start;
+  gap: 24px;
+}
+.plot-settings > fieldset {
+  flex: 1 1 240px;
+  margin: 0 0 12px;
+}
+.dataset-parameters,
+.model-parameters {
+  display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  align-items: end;
+}
+.dataset-actions,
+.model-actions {
+  display: flex;
+  align-items: end;
+  gap: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+.dataset-actions > .field,
+.model-actions > .field {
+  flex: 1;
+  min-width: 0;
+}
+.dataset-actions > button,
+.model-actions > button {
+  width: auto;
+  margin: 0;
+  white-space: nowrap;
+}
+.dataset-description,
+.dataset-help,
+.dataset-panel .small {
+  margin: 0;
+}
+.settings-grid {
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--line);
+}
+.panel > .pb {
+  padding: 16px 0;
+}
+.stat b,
+.training-toolbar-status,
+.tutorial-step-count,
+.data,
+.weighttable {
+  font-family: ui-monospace, Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+}
+.stat b {
+  font-weight: 500;
+  font-size: 24px;
+}
+h3 {
+  font-size: 18px;
+  font-weight: 500;
+  margin: 24px 0 12px;
+}
+.content-grid:has(> :only-child),
+.settings-grid:has(> :only-child) {
+  grid-template-columns: minmax(0, 1fr);
 }
 .header-description {
   margin-left: auto;
@@ -28,7 +121,7 @@
 .react-chart canvas {
   display: block;
   width: 100%;
-  border-radius: 6px;
+  border-radius: 0;
   cursor: grab;
 }
 .react-chart canvas:active {
@@ -52,7 +145,7 @@ pre {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   max-width: 100%;
-  color: #d4e6fa;
+  color: #edf1f2;
 }
 details {
   padding: 12px 0;
@@ -60,7 +153,7 @@ details {
 }
 summary {
   cursor: pointer;
-  color: #bad7f6;
+  color: #b6c0c3;
   font-weight: 600;
 }
 .formula {
@@ -69,12 +162,13 @@ summary {
   overflow-wrap: anywhere;
 }
 .formula-symbol {
-  border-bottom: 1px dotted #6b96c8;
+  border-bottom: 1px dotted #6f8b85;
   cursor: help;
 }
 .tutorial-progress button.active {
-  background: #1268ce;
-  border-color: #80bbff;
+  background: #54cbbb;
+  border-color: #76ddcd;
+  color: #102522;
 }
 .tutorial-actions {
   flex-wrap: wrap;
@@ -87,7 +181,7 @@ summary {
   flex-basis: 100%;
 }
 .selected-sample {
-  background: #173a60;
+  background: #203e39;
 }
 .sample-button {
   padding: 2px 8px;
@@ -97,33 +191,34 @@ summary {
 /* View-layer controls operate on cached geometry and never change the fit. */
 .graph-control-group {
   min-width: 0;
-  margin: 10px 0;
-  padding: 8px;
-  border: 1px solid var(--line);
-  border-radius: 7px;
+  margin: 12px 0;
+  padding: 8px 0;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
 }
 .graph-control-group legend {
-  padding: 0 5px;
+  padding: 0 4px;
   font-size: 12px;
-  color: #bcd6f3;
+  color: #b6c0c3;
   font-weight: 600;
 }
 .graph-control-group .surface-controls {
   display: grid;
-  gap: 7px;
+  gap: 8px;
 }
 .boundary-control {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(110px, 0.9fr);
-  gap: 10px;
+  gap: 8px;
   align-items: center;
 }
 .graph-opacity-control {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 4px;
   margin: 0;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--muted);
 }
 .graph-opacity-control input {
@@ -133,20 +228,20 @@ summary {
 .graph-layer-toggle {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin: 0 0 7px;
+  gap: 8px;
+  margin: 0 0 8px;
   font-size: 12px;
   cursor: pointer;
 }
 .graph-layer-toggle input {
   width: auto;
   margin: 0;
-  accent-color: var(--blue);
+  accent-color: var(--accent);
 }
 .point-controls {
   display: flex;
   flex-wrap: wrap;
-  gap: 5px;
+  gap: 4px;
 }
 .region-opacity {
   margin: 8px 0;
@@ -155,7 +250,7 @@ button:focus-visible,
 input:focus-visible,
 select:focus-visible,
 summary:focus-visible {
-  outline: 2px solid #89c4ff;
+  outline: 2px solid #76ddcd;
   outline-offset: 3px;
 }
 @media (max-width: 1200px) {
@@ -171,7 +266,7 @@ summary:focus-visible {
     grid-template-columns: minmax(0, 1fr);
   }
   .main {
-    padding: 9px;
+    padding: 16px;
   }
   .settings-grid,
   .content-grid,
@@ -208,5 +303,25 @@ summary:focus-visible {
   }
   .main {
     min-width: 0;
+  }
+  .dataset-parameters,
+  .model-parameters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .dataset-actions,
+  .model-actions {
+    flex-wrap: wrap;
+  }
+  .dataset-actions > .field {
+    flex-basis: 100%;
+  }
+  .panel > .pb {
+    padding: 16px 0;
+  }
+  .settings-grid,
+  .content-grid,
+  .reference-grid {
+    gap: 16px;
+    margin: 16px 0;
   }
 }

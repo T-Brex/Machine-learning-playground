@@ -1,7 +1,6 @@
 import { useMemo } from "react";
 import { NEURAL_METHODS } from "../data/catalog.ts";
 import {
-  COLORS,
   drawHistogram,
   drawLines,
   drawLossSurface,
@@ -26,7 +25,7 @@ export function LossCharts({ playground: p }: PlaygroundProps) {
             ctx,
             w,
             h,
-            [{ values: s.losses, color: COLORS[0], label: "Training loss" }],
+            [{ values: s.losses, color: "#54cbbb", label: "Training loss" }],
             { log: true },
           )
         }
@@ -39,8 +38,8 @@ export function LossCharts({ playground: p }: PlaygroundProps) {
             w,
             h,
             [
-              { values: s.trainHistory, color: COLORS[0], label: "Training" },
-              { values: s.testHistory, color: COLORS[1], label: "Validazione" },
+              { values: s.trainHistory, color: "#54cbbb", label: "Training" },
+              { values: s.testHistory, color: "#b6c0c3", label: "Validazione" },
             ],
             { yLabel: `${metric} (%)` },
           )
@@ -85,7 +84,7 @@ export function NetworkPanel({ playground: p }: PlaygroundProps) {
       <CanvasChart
         label="Struttura della rete neurale e pesi"
         height={Math.max(
-          300,
+          560,
           Math.min(650, (network?.hiddenValues.length || 5) * 35),
         )}
         draw={(ctx, w, h) => drawNetwork(ctx, w, h, network)}

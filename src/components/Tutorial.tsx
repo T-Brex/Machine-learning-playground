@@ -103,7 +103,7 @@ export default function Tutorial({ playground: p }: PlaygroundProps) {
           }
           onClick={p.step}
         >
-          ▶ Esegui un passo reale nel playground
+          Esegui un passo reale nel playground
         </button>
       </div>
       <Field id="tutorialSampleIndex" label="Cerca un campione per numero">

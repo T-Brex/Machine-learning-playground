@@ -45,7 +45,7 @@ export default function CanvasChart({
   interactive = false,
   rotate = false,
   onSelect,
-  height = 280,
+  height = 400,
   resetKey,
 }: CanvasChartProps) {
   const ref = useRef<HTMLCanvasElement | null>(null),
@@ -80,7 +80,7 @@ export default function CanvasChart({
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     ctx.scale(dpr, dpr);
-    ctx.fillStyle = "#091a2a";
+    ctx.fillStyle = "#151a1c";
     ctx.fillRect(0, 0, size.width, size.height);
     ctx.save();
     if (!interactive) {
@@ -214,7 +214,10 @@ export default function CanvasChart({
         role="img"
         aria-label={label}
         className="chart"
-        style={{ height, touchAction: "none" }}
+        style={{
+          height: `clamp(320px, 60vh, ${Math.max(height, 560)}px)`,
+          touchAction: "none",
+        }}
         onDoubleClick={() => setView(INITIAL_VIEW)}
         onPointerDown={(e) => {
           if (e.button !== 0) return;

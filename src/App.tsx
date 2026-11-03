@@ -30,7 +30,17 @@ export default function App() {
   return (
     <>
       <header className="top">
-        <div className="logo">◉</div>
+        <div className="logo" aria-hidden="true">
+          <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+            <path
+              d="M5 4v19h19M8 19l5-7 5 3 6-9"
+              stroke="currentColor"
+              strokeWidth="1.5"
+            />
+            <circle cx="13" cy="12" r="2" fill="currentColor" />
+            <circle cx="18" cy="15" r="2" fill="currentColor" />
+          </svg>
+        </div>
         <div>
           <div className="brand">ML Playground</div>
           <div className="sub">Sperimenta · Addestra · Visualizza</div>
