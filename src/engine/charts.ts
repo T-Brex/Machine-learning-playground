@@ -1,4 +1,5 @@
 import { renderSpatialScene } from "./spatialRenderer.ts";
+import { axisTicks } from "./axisTicks.ts";
 import { createPointOcclusion } from "./sceneOcclusion.ts";
 import type { PaintedFace } from "./sceneOcclusion.ts";
 import { spatialDomain } from "./decisionSurfaces.ts";
@@ -38,7 +39,7 @@ export function decisionSurfaceColor(
   return classColor((b * (b - 1)) / 2 + a);
 }
 
-/** Return data-to-pixel scales and draw labeled ticks inside a consistent plotting margin. */
+/** Draw origin axes and short labeled ticks, without a surrounding frame or grid. */
 
 function axes(
   ctx: CanvasRenderingContext2D,
@@ -50,32 +51,57 @@ function axes(
   xMax: number,
   yMin: number,
   yMax: number,
+  view?: ChartView,
 ) {
   const left = 58,
     right = width - 18,
     top = 24,
     bottom = height - 44;
+  if (view) {
+    // Navigate the data domain, leaving the canvas frame and typography in place.
+    const xSpan = (xMax - xMin) / view.zoom,
+      ySpan = (yMax - yMin) / view.zoom,
+      xCenter = (xMin + xMax) / 2 - (view.panX / (right - left)) * xSpan,
+      yCenter = (yMin + yMax) / 2 + (view.panY / (bottom - top)) * ySpan;
+    xMin = xCenter - xSpan / 2;
+    xMax = xCenter + xSpan / 2;
+    yMin = yCenter - ySpan / 2;
+    yMax = yCenter + ySpan / 2;
+  }
   ctx.font = "12px ui-monospace, Consolas, monospace";
   ctx.fillStyle = "#a0abad";
-  ctx.strokeStyle = "#343b3e";
-  ctx.lineWidth = 1;
+  ctx.strokeStyle = "#829095";
   const x = (v: number) =>
       left + ((v - xMin) / (xMax - xMin || 1)) * (right - left),
     y = (v: number) =>
       bottom - ((v - yMin) / (yMax - yMin || 1)) * (bottom - top);
-  for (let i = 0; i < 5; i++) {
-    const a = xMin + ((xMax - xMin) * i) / 4,
-      b = yMin + ((yMax - yMin) * i) / 4;
+  // Keep a readable edge axis when zero falls outside the visible domain.
+  const axisX = x(Math.max(xMin, Math.min(xMax, 0))),
+    axisY = y(Math.max(yMin, Math.min(yMax, 0)));
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(left, axisY);
+  ctx.lineTo(right, axisY);
+  ctx.moveTo(axisX, top);
+  ctx.lineTo(axisX, bottom);
+  ctx.stroke();
+  ctx.lineWidth = 1;
+  for (const value of axisTicks(xMin, xMax)) {
     ctx.beginPath();
-    ctx.moveTo(x(a), top);
-    ctx.lineTo(x(a), bottom);
-    ctx.moveTo(left, y(b));
-    ctx.lineTo(right, y(b));
+    ctx.moveTo(x(value), axisY - 4);
+    ctx.lineTo(x(value), axisY + 4);
     ctx.stroke();
     ctx.textAlign = "center";
-    ctx.fillText(String(Number(a.toFixed(2))), x(a), bottom + 16);
+    ctx.fillText(String(value), x(value), axisY + 18);
+  }
+  for (const value of axisTicks(yMin, yMax)) {
+    ctx.beginPath();
+    ctx.moveTo(axisX - 4, y(value));
+    ctx.lineTo(axisX + 4, y(value));
+    ctx.stroke();
     ctx.textAlign = "right";
-    ctx.fillText(String(Number(b.toFixed(3))), left - 7, y(b) + 3);
+    if (Math.abs(y(value) - axisY) > 12)
+      ctx.fillText(String(value), axisX - 8, y(value) + 4);
   }
   ctx.textAlign = "center";
   ctx.fillText(xLabel, (left + right) / 2, height - 7);
@@ -88,6 +114,14 @@ function axes(
   return { x, y, left, right, top, bottom };
 }
 
+/** Keep data marks inside the viewport while labels and legends remain stationary. */
+function clipPlot(ctx: CanvasRenderingContext2D, a: ReturnType<typeof axes>) {
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(a.left, a.top, a.right - a.left, a.bottom - a.top);
+  ctx.clip();
+}
+
 /** Plot finite history values; logarithmic loss uses log10 and keeps zeros above a small floor. */
 
 export function drawLines(
@@ -95,7 +129,11 @@ export function drawLines(
   w: number,
   h: number,
   series: { values: Vector; color: string; label: string }[],
-  { log = false, yLabel = "Loss" } = {},
+  {
+    log = false,
+    yLabel = "Loss",
+    view,
+  }: { log?: boolean; yLabel?: string; view?: ChartView } = {},
 ) {
   const clean = series.flatMap((s) => s.values).filter(Number.isFinite);
   const transform = (v: number) => (log ? Math.log10(Math.max(1e-8, v)) : v);
@@ -113,8 +151,10 @@ export function drawLines(
     count,
     lo,
     hi,
+    view,
   );
   for (const { values: line, color, label } of series) {
+    clipPlot(ctx, a);
     ctx.strokeStyle = color;
     ctx.lineWidth = 2;
     ctx.beginPath();
@@ -137,6 +177,7 @@ export function drawLines(
       ctx.arc(a.x(1), a.y(transform(line[0])), 3, 0, Math.PI * 2);
       ctx.fill();
     }
+    ctx.restore();
     ctx.fillStyle = color;
     ctx.fillText(
       label,
@@ -161,6 +202,7 @@ export function drawHistogram(
   w: number,
   h: number,
   losses: Vector,
+  view?: ChartView,
 ) {
   const values = losses.filter(Number.isFinite),
     lo = Math.min(...values),
@@ -178,12 +220,24 @@ export function drawHistogram(
     values.length ? hi + (hi === lo ? 1 : 0) : 1,
     0,
     Math.max(1, ...bins),
+    view,
   );
+  clipPlot(ctx, a);
   bins.forEach((n, i: number) => {
     ctx.fillStyle = COLORS[0];
-    const bw = (a.right - a.left) / 12;
-    ctx.fillRect(a.left + i * bw + 1, a.y(n), bw - 2, a.bottom - a.y(n));
+    const start = values.length ? lo : 0,
+      end = values.length ? hi + (hi === lo ? 1 : 0) : 1,
+      binWidth = (end - start) / 12,
+      left = a.x(start + i * binWidth),
+      right = a.x(start + (i + 1) * binWidth);
+    ctx.fillRect(
+      left + 1,
+      a.y(n),
+      Math.max(0, right - left - 2),
+      a.y(0) - a.y(n),
+    );
   });
+  ctx.restore();
 }
 
 /** Spatial projection uses only visible dimensions; predictions retain every feature. */
@@ -231,42 +285,53 @@ export function drawScatter(
     centerY = (h - 20) / 2;
   const plotWidth = Math.max(1, w - 76),
     plotHeight = Math.max(1, h - 68);
+  const pixelsPerUnit = Math.min(
+    plotWidth / (max[0] - min[0]),
+    plotHeight / (max[1] - min[1]),
+  );
   const visibleX = (pixel: number) =>
-    min[0] +
-    ((pixel - centerX - view.panX) / (plotWidth * view.zoom) + 0.5) *
-      (max[0] - min[0]);
+    (min[0] + max[0]) / 2 +
+    (pixel - centerX - view.panX) / (pixelsPerUnit * view.zoom);
   const visibleY = (pixel: number) =>
-    min[1] +
-    ((centerY + view.panY - pixel) / (plotHeight * view.zoom) + 0.5) *
-      (max[1] - min[1]);
+    (min[1] + max[1]) / 2 +
+    (centerY + view.panY - pixel) / (pixelsPerUnit * view.zoom);
   const yawSpan = Math.abs(Math.cos(view.yaw)) + Math.abs(Math.sin(view.yaw));
   const verticalSpan =
     yawSpan * Math.abs(Math.sin(view.pitch)) + Math.abs(Math.cos(view.pitch));
-  const spatialScaleX = Math.min(w * 0.6, Math.max(1, w - 32) / yawSpan);
-  const spatialScaleY = Math.min(h * 0.65, Math.max(1, h - 32) / verticalSpan);
+  const spatialScale = Math.min(
+    w * 0.6,
+    h * 0.65,
+    Math.max(1, w - 32) / yawSpan,
+    Math.max(1, h - 32) / verticalSpan,
+  );
+  const domainSpan = Math.max(...max.map((value, i) => value - min[i]));
   const project = (x: Vector): [number, number] => {
     const n = [0, 1, 2].map(
-      (i: number) => ((x[i] || 0) - min[i]) / (max[i] - min[i]) - 0.5,
+      (i: number) => ((x[i] || 0) - (min[i] + max[i]) / 2) / domainSpan,
     );
     if (!three)
       return [
-        centerX + n[0] * plotWidth * view.zoom + view.panX,
-        centerY - n[1] * plotHeight * view.zoom + view.panY,
+        centerX +
+          (x[0] - (min[0] + max[0]) / 2) * pixelsPerUnit * view.zoom +
+          view.panX,
+        centerY -
+          (x[1] - (min[1] + max[1]) / 2) * pixelsPerUnit * view.zoom +
+          view.panY,
       ];
     const u = n[0] * Math.cos(view.yaw) - n[1] * Math.sin(view.yaw),
       v = n[0] * Math.sin(view.yaw) + n[1] * Math.cos(view.yaw);
     return [
-      w / 2 + u * spatialScaleX * view.zoom + view.panX,
+      w / 2 + u * spatialScale * view.zoom + view.panX,
       h * 0.5 +
         (v * Math.sin(view.pitch) - n[2] * Math.cos(view.pitch)) *
-          spatialScaleY *
+          spatialScale *
           view.zoom +
         view.panY,
     ];
   };
   const depth = (input: Vector) => {
     const n = [0, 1, 2].map(
-      (i) => ((input[i] || 0) - min[i]) / (max[i] - min[i]) - 0.5,
+      (i) => ((input[i] || 0) - (min[i] + max[i]) / 2) / domainSpan,
     );
     const along = n[0] * Math.sin(view.yaw) + n[1] * Math.cos(view.yaw);
     return along * Math.cos(view.pitch) + n[2] * Math.sin(view.pitch);
@@ -295,15 +360,17 @@ export function drawScatter(
     ctx.restore();
   }
   if (three) {
-    const origin = project([0, 0, 0]);
-    ctx.strokeStyle = "#6f7d81";
+    ctx.strokeStyle = "#829095";
+    ctx.lineWidth = 1.5;
     ctx.font = "12px ui-monospace, Consolas, monospace";
     [0, 1, 2].forEach((i: number) => {
       const end = [0, 0, 0];
+      const start = [0, 0, 0];
+      start[i] = min[i];
       end[i] = max[i];
       const p = project(end);
       ctx.beginPath();
-      ctx.moveTo(...origin);
+      ctx.moveTo(...project(start));
       ctx.lineTo(...p);
       ctx.stroke();
       ctx.fillStyle = "#b6c0c3";
@@ -539,6 +606,7 @@ export function drawLossSurface(
   w: number,
   h: number,
   diagnostics: NeuralDiagnostics,
+  view?: ChartView,
 ) {
   const { surface, xMin, xMax, yMin, yMax } = diagnostics;
   const values = surface.flat(),
@@ -554,18 +622,38 @@ export function drawLossSurface(
     xMax,
     yMin,
     yMax,
+    view,
   );
-  const cw = (a.right - a.left) / surface[0].length,
-    ch = (a.bottom - a.top) / surface.length;
+  const dx = (xMax - xMin) / surface[0].length,
+    dy = (yMax - yMin) / surface.length;
+  clipPlot(ctx, a);
   surface.forEach((row, y) =>
     row.forEach((loss, x: number) => {
       const t = (loss - lo) / (hi - lo || 1);
       ctx.fillStyle = `hsl(${230 - 210 * t} 75% ${28 + 25 * t}%)`;
-      ctx.fillRect(a.left + x * cw, a.bottom - (y + 1) * ch, cw + 1, ch + 1);
+      const left = a.x(xMin + x * dx),
+        right = a.x(xMin + (x + 1) * dx),
+        top = a.y(yMin + (y + 1) * dy),
+        bottom = a.y(yMin + y * dy);
+      ctx.fillRect(left, top, right - left + 1, bottom - top + 1);
     }),
   );
   ctx.fillStyle = "#fff";
   ctx.beginPath();
-  ctx.arc((a.left + a.right) / 2, (a.top + a.bottom) / 2, 4, 0, Math.PI * 2);
+  ctx.arc(a.x((xMin + xMax) / 2), a.y((yMin + yMax) / 2), 4, 0, Math.PI * 2);
   ctx.fill();
+  ctx.restore();
+  // Axes sit above the heatmap so zero lines and ticks remain visible.
+  axes(
+    ctx,
+    w,
+    h,
+    "Primo peso W1[0,0]",
+    "Deuxième poids W1[0,1]",
+    xMin,
+    xMax,
+    yMin,
+    yMax,
+    view,
+  );
 }

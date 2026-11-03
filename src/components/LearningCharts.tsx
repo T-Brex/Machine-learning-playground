@@ -20,19 +20,21 @@ export function LossCharts({ playground: p }: PlaygroundProps) {
     <Panel title="Loss e prestazione per epoca">
       <CanvasChart
         label="Loss per epoca"
-        draw={(ctx, w, h) =>
+        interactive
+        draw={(ctx, w, h, view) =>
           drawLines(
             ctx,
             w,
             h,
             [{ values: s.losses, color: "#54cbbb", label: "Training loss" }],
-            { log: true },
+            { log: true, view },
           )
         }
       />
       <CanvasChart
         label={`${metric} train / validazione`}
-        draw={(ctx, w, h) =>
+        interactive
+        draw={(ctx, w, h, view) =>
           drawLines(
             ctx,
             w,
@@ -41,7 +43,7 @@ export function LossCharts({ playground: p }: PlaygroundProps) {
               { values: s.trainHistory, color: "#54cbbb", label: "Training" },
               { values: s.testHistory, color: "#b6c0c3", label: "Validazione" },
             ],
-            { yLabel: `${metric} (%)` },
+            { yLabel: `${metric} (%)`, view },
           )
         }
       />
@@ -65,7 +67,10 @@ export function Histogram({ playground: p }: PlaygroundProps) {
     <Panel title="Distribuzione della loss">
       <CanvasChart
         label="Distribuzione della loss"
-        draw={(ctx, w, h) => drawHistogram(ctx, w, h, p.snapshot.losses)}
+        interactive
+        draw={(ctx, w, h, view) =>
+          drawHistogram(ctx, w, h, p.snapshot.losses, view)
+        }
       />
     </Panel>
   );
@@ -108,7 +113,10 @@ export function NetworkPanel({ playground: p }: PlaygroundProps) {
           <h3>Superficie loss · due pesi della rete</h3>
           <CanvasChart
             label="Superficie loss attorno ai due primi pesi"
-            draw={(ctx, w, h) => drawLossSurface(ctx, w, h, diagnostics)}
+            interactive
+            draw={(ctx, w, h, view) =>
+              drawLossSurface(ctx, w, h, diagnostics, view)
+            }
           />
           <p className="small muted">
             Sezione della loss sul training, con gli altri parametri fissi.

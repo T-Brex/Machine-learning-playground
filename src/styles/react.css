@@ -118,6 +118,10 @@ h3 {
   min-width: 0;
   margin: 8px 0 16px;
 }
+.data-plot .react-chart {
+  max-width: 880px;
+  margin-inline: auto;
+}
 .react-chart canvas {
   display: block;
   width: 100%;

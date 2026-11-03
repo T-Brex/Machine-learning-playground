@@ -97,7 +97,7 @@ export default function DataChart({
     );
 
   return (
-    <Panel title="Dati e previsione">
+    <Panel title="Dati e previsione" className="data-plot">
       <div className="plot-settings">
         {three && p.snapshot.fitted && boundaries.length > 0 && (
           <fieldset className="graph-control-group">
@@ -268,6 +268,7 @@ export default function DataChart({
         rotate={three}
         resetKey={p.dataset}
         height={720}
+        aspectRatio={1.6}
         onSelect={onSelect}
         draw={(ctx, w, h, view) =>
           drawScatter(ctx, w, h, {

@@ -11,6 +11,7 @@ interface CanvasChartProps {
   rotate?: boolean;
   onSelect?: (index: number) => void;
   height?: number;
+  aspectRatio?: number;
   resetKey?: unknown;
 }
 interface Gesture {
@@ -46,6 +47,7 @@ export default function CanvasChart({
   rotate = false,
   onSelect,
   height = 400,
+  aspectRatio,
   resetKey,
 }: CanvasChartProps) {
   const ref = useRef<HTMLCanvasElement | null>(null),
@@ -91,22 +93,19 @@ export default function CanvasChart({
     points.current = draw(ctx, size.width, size.height, view) || [];
     ctx.restore();
   }, [draw, size, view, interactive]);
-  // A native non-passive listener lets pinch/scroll stay inside the chart.
+  // Only Ctrl+wheel zooms the chart; ordinary wheel gestures scroll the page.
   useEffect(() => {
     const canvas = ref.current;
     function wheel(event: WheelEvent) {
+      if (!event.ctrlKey) return;
       event.preventDefault();
-      setView((v) =>
-        event.ctrlKey
-          ? {
-              ...v,
-              zoom: Math.max(
-                0.5,
-                Math.min(8, v.zoom * Math.exp(-event.deltaY * 0.002)),
-              ),
-            }
-          : { ...v, panX: v.panX - event.deltaX, panY: v.panY - event.deltaY },
-      );
+      setView((v) => ({
+        ...v,
+        zoom: Math.max(
+          0.5,
+          Math.min(8, v.zoom * Math.exp(-event.deltaY * 0.002)),
+        ),
+      }));
     }
     if (!canvas) return;
     canvas.addEventListener("wheel", wheel, { passive: false });
@@ -215,7 +214,11 @@ export default function CanvasChart({
         aria-label={label}
         className="chart"
         style={{
-          height: `clamp(320px, 60vh, ${Math.max(height, 560)}px)`,
+          height: aspectRatio
+            ? "auto"
+            : `clamp(320px, 60vh, ${Math.max(height, 560)}px)`,
+          aspectRatio,
+          minHeight: aspectRatio ? 320 : undefined,
           touchAction: "none",
         }}
         onDoubleClick={() => setView(INITIAL_VIEW)}
