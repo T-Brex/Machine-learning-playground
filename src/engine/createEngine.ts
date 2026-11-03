@@ -1485,8 +1485,68 @@ export function createEngine(dataset: Dataset, settings: Configuration) {
       yMax: values[1] + 1,
     };
   }
+  /**
+   * Expose the classifier's continuous decision field for boundary extraction.
+   * Labels alone cannot locate a hyperplane accurately. The old display sampled
+   * them on three fixed-z sheets; those sheets were not decision boundaries.
+   * Logits/kernel scores/log-likelihoods retain the zero crossings needed by the
+   * worker. Models without a continuous score field use label-based meshing.
+   */
+  function decisionScores(x: Vector): Vector | null {
+    const model = engine.model;
+    if (!model || isRegressionTask()) return null;
+    if (
+      model.kind === "logistic" ||
+      model.kind === "softmax" ||
+      model.kind === "perceptron"
+    ) {
+      const scores = model.w.map((weights, c) =>
+        weights.reduce(
+          (sum, weight, i) => sum + weight * (x[i] || 0),
+          model.b[c],
+        ),
+      );
+      if (model.kind === "logistic" && scores.length === 2) {
+        // p>=threshold is a shifted logit tie, not necessarily a zero raw-logit difference.
+        const threshold = pNum("threshold", 0.5, 1e-6, 1 - 1e-6);
+        scores[1] -= Math.log(threshold / (1 - threshold));
+      }
+      return scores;
+    }
+    if (model.kind === "svm")
+      return model.alpha.map(
+        (alpha, c) =>
+          model.bias[c] +
+          alpha.reduce(
+            (sum, value, i) =>
+              sum +
+              value *
+                model.labels[c][i] *
+                svmKernel(engine.train[i].x, x, engine.id),
+            0,
+          ),
+      );
+    if (model.kind === "mlp") {
+      const logits = mlpForward(model, x).z2;
+      return logits.length === 1 ? [0, logits[0]] : logits;
+    }
+    if (model.kind === "boost")
+      return model.base.map(
+        (value, c) =>
+          value +
+          model.trees[c].reduce(
+            (sum, tree) =>
+              sum + pNum("learningRate", 0.1, 1e-4, 1) * treeValue(tree, x),
+            0,
+          ),
+      );
+    if (model.kind === "naive")
+      return model.stats.map((stats) => naiveScore(x, stats, model.variant));
+    return null;
+  }
   return {
     snapshot,
+    decisionScores,
     predict: enginePredict,
     trace: getAlgorithmLearningTrace,
     visualization: getAlgorithmLearningVisualization,

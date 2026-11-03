@@ -1,6 +1,7 @@
 import { NEURAL_METHODS } from "../data/catalog.ts";
 import { parameterRows } from "../engine/modelParameters.ts";
 import { createEngine } from "../engine/createEngine.ts";
+import { buildDecisionSurfaces } from "../engine/decisionSurfaces.ts";
 import type { Configuration, Dataset, PageId } from "../types.ts";
 import type {
   PredictionGrid,
@@ -68,16 +69,36 @@ export function createSolverRuntime(
    * neighbors, evaluates kernels, or runs a neural forward pass on the UI thread.
    */
   function predictionGrid(): PredictionGrid {
+    if (!engine)
+      throw new Error("Initialize the solver before building its graph.");
     const rows = dataset.data,
       dimensions = rows[0]?.x.length || 2,
       three = dimensions >= 3;
+    if (three) {
+      const snapshot = engine.snapshot(),
+        kind = snapshot.model?.kind;
+      return {
+        cells: [],
+        stepX: 0,
+        stepY: 0,
+        three: true,
+        surfaces: buildDecisionSurfaces(dataset, {
+          predict: engine.predict,
+          scores: engine.decisionScores,
+          linear:
+            kind === "logistic" || kind === "softmax" || kind === "perceptron",
+          regression: snapshot.regression,
+          clustering: snapshot.clustering,
+        }),
+      };
+    }
     const min = [0, 1, 2].map(
       (i) => Math.min(-2, ...rows.map((row) => row.x[i] || 0)) - 0.3,
     );
     const max = [0, 1, 2].map(
       (i) => Math.max(2, ...rows.map((row) => row.x[i] || 0)) + 0.3,
     );
-    const resolution = three ? 15 : 32,
+    const resolution = 32,
       cells: PredictionGrid["cells"] = [];
     // Extend 2D coverage for the supported zoom-out view. Outside this finite
     // sampled domain the points/axes remain interactive, without inventing values.
@@ -89,16 +110,14 @@ export function createSolverRuntime(
       }
     const stepX = (max[0] - min[0]) / resolution,
       stepY = (max[1] - min[1]) / resolution;
-    for (let z = 0; z < (three ? 3 : 1); z++)
-      for (let y = 0; y < resolution; y++)
-        for (let x = 0; x < resolution; x++) {
-          const input = Array<number>(dimensions).fill(0);
-          input[0] = min[0] + x * stepX;
-          input[1] = min[1] + y * stepY;
-          if (three) input[2] = min[2] + ((max[2] - min[2]) * z) / 2;
-          cells.push({ input, value: engine!.predict(input) });
-        }
-    return { cells, stepX, stepY, three };
+    for (let y = 0; y < resolution; y++)
+      for (let x = 0; x < resolution; x++) {
+        const input = Array<number>(dimensions).fill(0);
+        input[0] = min[0] + x * stepX;
+        input[1] = min[1] + y * stepY;
+        cells.push({ input, value: engine.predict(input) });
+      }
+    return { cells, stepX, stepY, three, surfaces: [] };
   }
 
   function publish() {

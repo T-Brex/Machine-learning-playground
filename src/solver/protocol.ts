@@ -10,6 +10,7 @@ import type {
   Matrix,
   Vector,
 } from "../types.ts";
+import type { DecisionFace } from "../engine/decisionSurfaces.ts";
 
 /**
  * The worker owns the mutable engine. Only serializable commands and read-only
@@ -29,12 +30,14 @@ export type SolverCommand =
   | { type: "predict"; requestId: number; input: Vector }
   | { type: "ack"; frameId: number };
 
-/** World-space samples let pan/zoom redraw immediately without rerunning prediction. */
+/** Cached 2D response samples and 3D boundary faces reproject without rerunning inference. */
 export interface PredictionGrid {
   cells: { input: Vector; value: number }[];
   stepX: number;
   stepY: number;
   three: boolean;
+  /** Connected class boundaries for 3D; cells are only used for the 2D background. */
+  surfaces: DecisionFace[];
 }
 
 export interface SolverFrame {

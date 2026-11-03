@@ -1,8 +1,8 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { NEURAL_METHODS } from "../data/catalog.ts";
 import {
   COLORS,
-  classColor,
+  decisionSurfaceColor,
   drawHistogram,
   drawLines,
   drawLossSurface,
@@ -23,37 +23,50 @@ export function DataChart({
   selected?: number;
   onSelect?: (index: number) => void;
 }) {
-  const [hiddenClasses, setHiddenClasses] = useState<number[]>([]);
+  const [hiddenSurfaces, setHiddenSurfaces] = useState<string[]>([]);
+  useEffect(() => setHiddenSurfaces([]), [p.dataset, p.config.method]);
+  const boundaries = useMemo(
+    () => [
+      ...new Map(
+        (p.plot?.surfaces || []).map((face) => [
+          face.classes.join(":"),
+          face.classes,
+        ]),
+      ).entries(),
+    ],
+    [p.plot],
+  );
   return (
     <Panel title="Dati e previsione">
       {p.dataset.data[0]?.x.length >= 3 &&
         p.snapshot.fitted &&
-        !p.snapshot.regression && (
-          <div className="surface-controls">
-            {Array.from(
-              {
-                length: p.snapshot.clustering
-                  ? Number(p.snapshot.metrics["Numero cluster"]) || 1
-                  : p.dataset.classes,
-              },
-              (_, i) => (
-                <label className="surface-toggle" key={i}>
-                  <input
-                    type="checkbox"
-                    checked={!hiddenClasses.includes(i)}
-                    onChange={() =>
-                      setHiddenClasses((values) =>
-                        values.includes(i)
-                          ? values.filter((v) => v !== i)
-                          : [...values, i],
-                      )
-                    }
-                  />
-                  <span style={{ background: classColor(i) }} />
-                  Superficie {i + 1}
-                </label>
-              ),
-            )}
+        boundaries.length > 0 && (
+          <div className="surface-controls" aria-label="Visibilità dei confini">
+            {boundaries.map(([key, classes]) => (
+              <label className="surface-toggle" key={key}>
+                <input
+                  type="checkbox"
+                  checked={!hiddenSurfaces.includes(key)}
+                  onChange={() =>
+                    setHiddenSurfaces((values) =>
+                      values.includes(key)
+                        ? values.filter((value) => value !== key)
+                        : [...values, key],
+                    )
+                  }
+                />
+                <span
+                  style={{
+                    background: p.snapshot.regression
+                      ? "#35d58a"
+                      : decisionSurfaceColor(classes, p.dataset.classes),
+                  }}
+                />
+                {p.snapshot.regression
+                  ? "Superficie di previsione"
+                  : `Confine ${classes.map((c) => c + 1).join(" ↔ ")}`}
+              </label>
+            ))}
           </div>
         )}
       <CanvasChart
@@ -72,14 +85,18 @@ export function DataChart({
             snapshot: p.snapshot,
             view,
             selected,
-            hiddenClasses,
+            hiddenSurfaces,
           })
         }
       />
       <p className="small muted">
-        Punti = esempi · sfondo = previsioni. Con almeno 3 feature, proiezione
-        3D delle prime tre. Le altre feature sono fissate a zero nelle sezioni
-        dello sfondo.
+        {p.dataset.data[0]?.x.length >= 3
+          ? p.snapshot.regression
+            ? "Punti = target osservati · superficie = previsione al target mediano. Assi = prime tre feature; le altre sono fissate alle medie del dataset."
+            : p.snapshot.clustering
+              ? "Colori = cluster assegnati · croci = centroidi. Assi = prime tre feature."
+              : "Superfici = confini di decisione tra le classi, non sezioni orizzontali. Assi = prime tre feature; le altre sono fissate alle medie del dataset."
+          : "Punti = esempi · sfondo = regioni previste dal modello."}
       </p>
     </Panel>
   );

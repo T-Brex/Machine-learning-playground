@@ -1,3 +1,4 @@
+import { spatialDomain } from "./decisionSurfaces.ts";
 import type { PredictionGrid } from "../solver/protocol.ts";
 import type {
   ChartView,
@@ -22,6 +23,17 @@ export const COLORS = [
 ];
 export const classColor = (label: number) =>
   label < 0 ? "#8192a8" : COLORS[label % COLORS.length];
+
+/** Give each class pair a stable swatch; the legend uses this same mapping. */
+export function decisionSurfaceColor(
+  classes: number[],
+  classCount: number,
+): string {
+  if (classCount === 2) return "#bba7ff";
+  if (classes.length === 1) return classColor(classes[0]);
+  const [a, b] = classes;
+  return classColor((b * (b - 1)) / 2 + a);
+}
 
 /** Return data-to-pixel scales and draw labeled ticks inside a consistent plotting margin. */
 
@@ -184,7 +196,7 @@ export function drawScatter(
     snapshot,
     view,
     selected = -1,
-    hiddenClasses = [],
+    hiddenSurfaces = [],
   }: {
     dataset: Dataset;
     plot: PredictionGrid | null;
@@ -193,17 +205,12 @@ export function drawScatter(
     snapshot: Snapshot;
     view: ChartView;
     selected?: number;
-    hiddenClasses?: number[];
+    hiddenSurfaces?: string[];
   },
 ) {
   const rows = dataset.data,
     three = (rows[0]?.x.length || 2) >= 3;
-  const min = [0, 1, 2].map(
-      (i: number) => Math.min(-2, ...rows.map((r) => r.x[i] || 0)) - 0.3,
-    ),
-    max = [0, 1, 2].map(
-      (i: number) => Math.max(2, ...rows.map((r) => r.x[i] || 0)) + 0.3,
-    );
+  const [min, max] = spatialDomain(dataset);
   // The foreground, prediction grid, and axis ticks share the same inverse projection.
   const centerX = (w + 40) / 2,
     centerY = (h - 20) / 2;
@@ -273,17 +280,47 @@ export function drawScatter(
       ctx.fillStyle = "#b9d6f5";
       ctx.fillText(`x${i + 1}`, p[0], p[1]);
     });
-    // The worker samples these slices once per published model, rather than
-    // evaluating a fresh network/kernel for every pixel of every pointer move.
+    // Project actual decision faces, not fixed-z prediction samples. Sort by
+    // camera depth so rotating the view preserves the ordering of overlapping
+    // translucent planes. Points remain on top to keep all training examples legible.
+    const depth = (input: Vector) => {
+      const n = [0, 1, 2].map(
+        (i) => ((input[i] || 0) - min[i]) / (max[i] - min[i]) - 0.5,
+      );
+      const along = n[0] * Math.sin(view.yaw) + n[1] * Math.cos(view.yaw);
+      return along * Math.cos(view.pitch) + n[2] * Math.sin(view.pitch);
+    };
     if (snapshot.fitted && plot) {
-      ctx.globalAlpha = 0.15;
-      for (const cell of plot.cells) {
-        if (hiddenClasses.includes(cell.value)) continue;
-        const [x, y] = project(cell.input);
-        ctx.fillStyle = snapshot.regression
-          ? `hsl(${220 - Math.max(0, Math.min(1, (cell.value + 5) / 10)) * 180} 50% 40%)`
-          : classColor(cell.value);
-        ctx.fillRect(x, y, 7 * view.zoom, 7 * view.zoom);
+      const faces = plot.surfaces
+        .filter((face) => !hiddenSurfaces.includes(face.classes.join(":")))
+        .map((face) => ({
+          face,
+          depth:
+            face.vertices.reduce((sum, vertex) => sum + depth(vertex), 0) /
+            face.vertices.length,
+        }))
+        .sort((a, b) => a.depth - b.depth);
+      for (const { face } of faces) {
+        const vertices = face.vertices.map(project);
+        if (vertices.length < 3) continue;
+        ctx.beginPath();
+        ctx.moveTo(...vertices[0]);
+        for (const point of vertices.slice(1)) ctx.lineTo(...point);
+        ctx.closePath();
+        const color = snapshot.regression
+          ? "#35d58a"
+          : decisionSurfaceColor(face.classes, dataset.classes);
+        ctx.fillStyle = color;
+        ctx.globalAlpha = 0.26;
+        ctx.fill();
+        // Exact hyperplanes are convex patches; outlining their perimeter makes
+        // them readable. Avoid drawing every internal edge of a nonlinear mesh.
+        if (face.vertices.length > 3) {
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 1.2;
+          ctx.globalAlpha = 0.7;
+          ctx.stroke();
+        }
       }
       ctx.globalAlpha = 1;
     }
