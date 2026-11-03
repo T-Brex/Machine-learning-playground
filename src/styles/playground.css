@@ -283,6 +283,18 @@ aside button.active {
   gap: 6px;
   flex-wrap: wrap;
 }
+.surface-opacity-control {
+  align-items: center;
+  min-width: 200px;
+}
+.surface-opacity-control input[type="range"] {
+  width: 118px;
+  margin: 0;
+}
+.surface-opacity-label {
+  color: #bcd6f3;
+  font-size: 12px;
+}
 .surface-toggle {
   display: inline-flex;
   align-items: center;

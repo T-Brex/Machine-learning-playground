@@ -24,7 +24,13 @@ export function DataChart({
   onSelect?: (index: number) => void;
 }) {
   const [hiddenSurfaces, setHiddenSurfaces] = useState<string[]>([]);
-  useEffect(() => setHiddenSurfaces([]), [p.dataset, p.config.method]);
+  const [surfaceOpacity, setSurfaceOpacity] = useState(0.26);
+  const [hiddenPointGroups, setHiddenPointGroups] = useState<number[]>([]);
+  useEffect(() => {
+    setHiddenSurfaces([]);
+    setSurfaceOpacity(0.26);
+    setHiddenPointGroups([]);
+  }, [p.dataset, p.config.method]);
   const boundaries = useMemo(
     () => [
       ...new Map(
@@ -36,35 +42,96 @@ export function DataChart({
     ],
     [p.plot],
   );
+  const pointGroups = useMemo(
+    () => Array.from({ length: Math.max(0, p.dataset.classes) }, (_, i) => i),
+    [p.dataset.classes],
+  );
   return (
     <Panel title="Dati e previsione">
       {p.dataset.data[0]?.x.length >= 3 &&
         p.snapshot.fitted &&
         boundaries.length > 0 && (
-          <div className="surface-controls" aria-label="Visibilità dei confini">
-            {boundaries.map(([key, classes]) => (
-              <label className="surface-toggle" key={key}>
+          <>
+            <div
+              className="surface-controls"
+              aria-label="Visibilità dei confini"
+            >
+              {boundaries.map(([key, classes]) => (
+                <label className="surface-toggle" key={key}>
+                  <input
+                    type="checkbox"
+                    checked={!hiddenSurfaces.includes(key)}
+                    onChange={() =>
+                      setHiddenSurfaces((values) =>
+                        values.includes(key)
+                          ? values.filter((value) => value !== key)
+                          : [...values, key],
+                      )
+                    }
+                  />
+                  <span
+                    style={{
+                      background: p.snapshot.regression
+                        ? "#35d58a"
+                        : decisionSurfaceColor(classes, p.dataset.classes),
+                    }}
+                  />
+                  {p.snapshot.regression
+                    ? "Superficie di previsione"
+                    : `Confine ${classes.map((c) => c + 1).join(" ↔ ")}`}
+                </label>
+              ))}
+            </div>
+            <div className="surface-controls" aria-label="Opacità dei confini">
+              <label className="surface-toggle surface-opacity-control">
+                <span className="surface-opacity-label">Opacità</span>
+                <input
+                  type="range"
+                  min={0.05}
+                  max={1}
+                  step={0.05}
+                  value={surfaceOpacity}
+                  onChange={(event) =>
+                    setSurfaceOpacity(Number(event.target.value))
+                  }
+                />
+                <strong>{surfaceOpacity.toFixed(2)}</strong>
+              </label>
+            </div>
+          </>
+        )}
+      {p.dataset.classes > 1 &&
+        !p.snapshot.regression &&
+        p.snapshot.fitted &&
+        (p.plot?.surfaces.length ?? 0) > 0 && (
+          <div
+            className="surface-controls"
+            aria-label="Visibilità dei gruppi di punti"
+          >
+            {pointGroups.map((group) => (
+              <label className="surface-toggle" key={group}>
                 <input
                   type="checkbox"
-                  checked={!hiddenSurfaces.includes(key)}
+                  checked={!hiddenPointGroups.includes(group)}
                   onChange={() =>
-                    setHiddenSurfaces((values) =>
-                      values.includes(key)
-                        ? values.filter((value) => value !== key)
-                        : [...values, key],
+                    setHiddenPointGroups((values) =>
+                      values.includes(group)
+                        ? values.filter((value) => value !== group)
+                        : [...values, group],
                     )
                   }
                 />
                 <span
                   style={{
-                    background: p.snapshot.regression
-                      ? "#35d58a"
-                      : decisionSurfaceColor(classes, p.dataset.classes),
+                    background: decisionSurfaceColor(
+                      [group],
+                      p.dataset.classes,
+                    ),
                   }}
                 />
-                {p.snapshot.regression
-                  ? "Superficie di previsione"
-                  : `Confine ${classes.map((c) => c + 1).join(" ↔ ")}`}
+                {p.snapshot.clustering && p.snapshot.fitted
+                  ? `Cluster ${group + 1}`
+                  : `Classe ${group + 1}`}
               </label>
             ))}
           </div>
@@ -86,6 +153,8 @@ export function DataChart({
             view,
             selected,
             hiddenSurfaces,
+            hiddenClasses: hiddenPointGroups,
+            surfaceOpacity,
           })
         }
       />

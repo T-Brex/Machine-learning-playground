@@ -24,6 +24,40 @@ export const COLORS = [
 export const classColor = (label: number) =>
   label < 0 ? "#8192a8" : COLORS[label % COLORS.length];
 
+interface ProjectedPoint {
+  x: number;
+  y: number;
+  depth: number;
+}
+type ProjectedTriangle = readonly [
+  ProjectedPoint,
+  ProjectedPoint,
+  ProjectedPoint,
+];
+
+/** Whether a closer projected triangle covers a point in the view. */
+export function isBehindSurface(
+  point: ProjectedPoint,
+  triangles: readonly ProjectedTriangle[],
+): boolean {
+  for (const [a, b, c] of triangles) {
+    const denominator = (b.y - c.y) * (a.x - c.x) + (c.x - b.x) * (a.y - c.y);
+    if (Math.abs(denominator) < 1e-9) continue;
+    const weightA =
+        ((b.y - c.y) * (point.x - c.x) + (c.x - b.x) * (point.y - c.y)) /
+        denominator,
+      weightB =
+        ((c.y - a.y) * (point.x - c.x) + (a.x - c.x) * (point.y - c.y)) /
+        denominator,
+      weightC = 1 - weightA - weightB;
+    if (Math.min(weightA, weightB, weightC) < -1e-6) continue;
+    const surfaceDepth =
+      weightA * a.depth + weightB * b.depth + weightC * c.depth;
+    if (surfaceDepth > point.depth + 1e-6) return true;
+  }
+  return false;
+}
+
 /** Give each class pair a stable swatch; the legend uses this same mapping. */
 export function decisionSurfaceColor(
   classes: number[],
@@ -197,6 +231,8 @@ export function drawScatter(
     view,
     selected = -1,
     hiddenSurfaces = [],
+    hiddenClasses = [],
+    surfaceOpacity = 0.26,
   }: {
     dataset: Dataset;
     plot: PredictionGrid | null;
@@ -206,6 +242,8 @@ export function drawScatter(
     view: ChartView;
     selected?: number;
     hiddenSurfaces?: string[];
+    hiddenClasses?: number[];
+    surfaceOpacity?: number;
   },
 ) {
   const rows = dataset.data,
@@ -245,6 +283,14 @@ export function drawScatter(
         view.panY,
     ];
   };
+  const depth = (input: Vector) => {
+    const n = [0, 1, 2].map(
+      (i) => ((input[i] || 0) - min[i]) / (max[i] - min[i]) - 0.5,
+    );
+    const along = n[0] * Math.sin(view.yaw) + n[1] * Math.cos(view.yaw);
+    return along * Math.cos(view.pitch) + n[2] * Math.sin(view.pitch);
+  };
+  let pointsOccluders: ProjectedTriangle[] = [];
   // Cells were evaluated in the worker. Reprojecting cached world-space data
   // keeps gestures independent of solver speed, with no inference during draw.
   if (snapshot.fitted && !three && plot) {
@@ -280,38 +326,35 @@ export function drawScatter(
       ctx.fillStyle = "#b9d6f5";
       ctx.fillText(`x${i + 1}`, p[0], p[1]);
     });
-    // Project actual decision faces, not fixed-z prediction samples. Sort by
-    // camera depth so rotating the view preserves the ordering of overlapping
-    // translucent planes. Points remain on top to keep all training examples legible.
-    const depth = (input: Vector) => {
-      const n = [0, 1, 2].map(
-        (i) => ((input[i] || 0) - min[i]) / (max[i] - min[i]) - 0.5,
-      );
-      const along = n[0] * Math.sin(view.yaw) + n[1] * Math.cos(view.yaw);
-      return along * Math.cos(view.pitch) + n[2] * Math.sin(view.pitch);
-    };
+    // Sort projected faces by camera depth before drawing overlapping surfaces.
     if (snapshot.fitted && plot) {
       const faces = plot.surfaces
         .filter((face) => !hiddenSurfaces.includes(face.classes.join(":")))
         .map((face) => ({
           face,
+          vertices: face.vertices.map((vertex) => {
+            const [x, y] = project(vertex);
+            return { x, y, depth: depth(vertex) };
+          }),
           depth:
             face.vertices.reduce((sum, vertex) => sum + depth(vertex), 0) /
             face.vertices.length,
         }))
         .sort((a, b) => a.depth - b.depth);
-      for (const { face } of faces) {
-        const vertices = face.vertices.map(project);
+      const occluders: ProjectedTriangle[] = [];
+      for (const { face, vertices } of faces) {
         if (vertices.length < 3) continue;
         ctx.beginPath();
-        ctx.moveTo(...vertices[0]);
-        for (const point of vertices.slice(1)) ctx.lineTo(...point);
+        ctx.moveTo(vertices[0].x, vertices[0].y);
+        for (const point of vertices.slice(1)) ctx.lineTo(point.x, point.y);
         ctx.closePath();
+        for (let i = 1; i < vertices.length - 1; i++)
+          occluders.push([vertices[0], vertices[i], vertices[i + 1]]);
         const color = snapshot.regression
           ? "#35d58a"
           : decisionSurfaceColor(face.classes, dataset.classes);
         ctx.fillStyle = color;
-        ctx.globalAlpha = 0.26;
+        ctx.globalAlpha = surfaceOpacity;
         ctx.fill();
         // Exact hyperplanes are convex patches; outlining their perimeter makes
         // them readable. Avoid drawing every internal edge of a nonlinear mesh.
@@ -322,6 +365,7 @@ export function drawScatter(
           ctx.stroke();
         }
       }
+      pointsOccluders = occluders;
       ctx.globalAlpha = 1;
     }
   } else
@@ -337,8 +381,23 @@ export function drawScatter(
       visibleY(24),
     );
   const points = rows.map((row, index) => ({ row, index, p: project(row.x) }));
-  points
-    .sort((a, b) => (a.row.x[2] || 0) - (b.row.x[2] || 0))
+  const visiblePoints = points.filter(({ row, index, p }) => {
+    const label =
+      snapshot.clustering && snapshot.fitted
+        ? (predictions[index] ?? -1)
+        : row.y;
+    if (hiddenClasses.includes(label)) return false;
+    return (
+      !three ||
+      !pointsOccluders.length ||
+      !isBehindSurface(
+        { x: p[0], y: p[1], depth: depth(row.x) },
+        pointsOccluders,
+      )
+    );
+  });
+  visiblePoints
+    .sort((a, b) => (three ? depth(a.row.x) - depth(b.row.x) : 0))
     .forEach(({ row, index, p }) => {
       const label =
         snapshot.clustering && snapshot.fitted
@@ -359,7 +418,14 @@ export function drawScatter(
       }
     });
   centers.forEach((center, i: number) => {
+    if (hiddenClasses.includes(i)) return;
     const [x, y] = project(center);
+    if (
+      three &&
+      pointsOccluders.length &&
+      isBehindSurface({ x, y, depth: depth(center) }, pointsOccluders)
+    )
+      return;
     ctx.strokeStyle = classColor(i);
     ctx.lineWidth = 3;
     ctx.beginPath();
@@ -369,7 +435,7 @@ export function drawScatter(
     ctx.lineTo(x, y + 7);
     ctx.stroke();
   });
-  return points.map(({ index, p }) => ({ index, x: p[0], y: p[1] }));
+  return visiblePoints.map(({ index, p }) => ({ index, x: p[0], y: p[1] }));
 }
 
 /** Draw one connection per weight, with sign encoded by color and magnitude by thickness. */
