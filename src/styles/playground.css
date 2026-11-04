@@ -303,7 +303,7 @@ aside button.active {
   align-items: center;
   margin: 12px 0;
   padding: 12px 0;
-  background: transparent;
+  background: var(--bg);
   border: 0;
   border-bottom: 1px solid var(--line);
   border-radius: 0;
