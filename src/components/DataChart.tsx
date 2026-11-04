@@ -1,3 +1,4 @@
+import { useTranslation } from "../i18n/Language.tsx";
 import { useEffect, useMemo, useState } from "react";
 import {
   classColor,
@@ -22,6 +23,8 @@ export default function DataChart({
   selected?: number;
   onSelect?: (index: number) => void;
 }) {
+  const t = useTranslation();
+
   const [hiddenSurfaces, setHiddenSurfaces] = useState<string[]>([]);
   const [surfaceOpacity, setSurfaceOpacity] = useState<Record<string, number>>(
     {},
@@ -97,173 +100,183 @@ export default function DataChart({
     );
 
   return (
-    <Panel title="Dati e previsione">
-      {three && p.snapshot.fitted && boundaries.length > 0 && (
+    <Panel title={t("Dati e previsione")} className="data-plot">
+      <div className="plot-settings">
+        {three && p.snapshot.fitted && boundaries.length > 0 && (
+          <fieldset className="graph-control-group">
+            <legend>{t("Confini e opacità")}</legend>
+            <div
+              className="surface-controls"
+              aria-label={t("Visibilità dei confini")}
+            >
+              {boundaries.map(([key, classes]) => {
+                const name = regression
+                  ? "Superficie di previsione"
+                  : `Confine ${classes.map((c) => c + 1).join(" ↔ ")}`;
+                const opacity = surfaceOpacity[key] ?? 0.26;
+                return (
+                  <div className="boundary-control" key={key}>
+                    <label className="surface-toggle">
+                      <input
+                        type="checkbox"
+                        checked={!hiddenSurfaces.includes(key)}
+                        onChange={() =>
+                          setHiddenSurfaces((values) =>
+                            values.includes(key)
+                              ? values.filter((value) => value !== key)
+                              : [...values, key],
+                          )
+                        }
+                      />
+                      <span
+                        style={{
+                          background: regression
+                            ? "#35d58a"
+                            : decisionSurfaceColor(classes, p.dataset.classes),
+                        }}
+                      />
+                      {t(name)}
+                    </label>
+                    <label className="graph-opacity-control">
+                      <span>{t(`Opacità ${Math.round(opacity * 100)}%`)}</span>
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        step="1"
+                        value={Math.round(opacity * 100)}
+                        aria-label={t(`Opacità ${name.toLowerCase()}`)}
+                        disabled={hiddenSurfaces.includes(key)}
+                        onChange={(event) =>
+                          setSurfaceOpacity((values) => ({
+                            ...values,
+                            [key]: Number(event.target.value) / 100,
+                          }))
+                        }
+                      />
+                    </label>
+                  </div>
+                );
+              })}
+            </div>
+          </fieldset>
+        )}
+
         <fieldset className="graph-control-group">
-          <legend>Confini e opacità</legend>
-          <div className="surface-controls" aria-label="Visibilità dei confini">
-            {boundaries.map(([key, classes]) => {
-              const name = regression
-                ? "Superficie di previsione"
-                : `Confine ${classes.map((c) => c + 1).join(" ↔ ")}`;
-              const opacity = surfaceOpacity[key] ?? 0.26;
-              return (
-                <div className="boundary-control" key={key}>
-                  <label className="surface-toggle">
-                    <input
-                      type="checkbox"
-                      checked={!hiddenSurfaces.includes(key)}
-                      onChange={() =>
-                        setHiddenSurfaces((values) =>
-                          values.includes(key)
-                            ? values.filter((value) => value !== key)
-                            : [...values, key],
-                        )
-                      }
-                    />
-                    <span
-                      style={{
-                        background: regression
-                          ? "#35d58a"
-                          : decisionSurfaceColor(classes, p.dataset.classes),
-                      }}
-                    />
-                    {name}
-                  </label>
-                  <label className="graph-opacity-control">
-                    <span>Opacità {Math.round(opacity * 100)}%</span>
-                    <input
-                      type="range"
-                      min="0"
-                      max="100"
-                      step="1"
-                      value={Math.round(opacity * 100)}
-                      aria-label={`Opacità ${name.toLowerCase()}`}
-                      disabled={hiddenSurfaces.includes(key)}
-                      onChange={(event) =>
-                        setSurfaceOpacity((values) => ({
-                          ...values,
-                          [key]: Number(event.target.value) / 100,
-                        }))
-                      }
-                    />
-                  </label>
-                </div>
-              );
-            })}
-          </div>
-        </fieldset>
-      )}
-
-      <fieldset className="graph-control-group">
-        <legend>Punti del dataset</legend>
-        <label className="graph-layer-toggle">
-          <input
-            type="checkbox"
-            checked={showPoints}
-            onChange={(event) => setShowPoints(event.target.checked)}
-            aria-label="Mostra tutti i punti"
-          />
-          Mostra punti
-        </label>
-        <div
-          className="point-controls"
-          aria-label="Visibilità dei gruppi di punti"
-        >
-          {pointSets.map((label) => (
-            <label className="surface-toggle" key={label}>
-              <input
-                type="checkbox"
-                checked={!hiddenPointSets.includes(label)}
-                disabled={!showPoints}
-                onChange={() => togglePointSet(label)}
-                aria-label={`Mostra punti ${pointName(label).toLowerCase()}`}
-              />
-              <span style={{ background: classColor(label) }} />
-              {pointName(label)}
-            </label>
-          ))}
-        </div>
-      </fieldset>
-
-      {regionsAvailable && (
-        <fieldset
-          className="graph-control-group region-controls"
-          aria-busy={showRegions && !p.plot?.regionsRequested}
-        >
-          <legend>Spazio classificato</legend>
+          <legend>{t("Punti del dataset")}</legend>
           <label className="graph-layer-toggle">
             <input
               type="checkbox"
-              checked={showRegions}
-              onChange={(event) => setShowRegions(event.target.checked)}
-              aria-label="Evidenzia spazio classificato"
+              checked={showPoints}
+              onChange={(event) => setShowPoints(event.target.checked)}
+              aria-label={t("Mostra tutti i punti")}
             />
-            Evidenzia lo spazio previsto per classe
+            {t("Mostra punti")}
           </label>
-          {showRegions && (
-            <>
-              <label className="graph-opacity-control region-opacity">
-                <span>
-                  Opacità dello spazio {Math.round(regionOpacity * 100)}%
-                </span>
+          <div
+            className="point-controls"
+            aria-label={t("Visibilità dei gruppi di punti")}
+          >
+            {pointSets.map((label) => (
+              <label className="surface-toggle" key={label}>
                 <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  step="1"
-                  value={Math.round(regionOpacity * 100)}
-                  onChange={(event) =>
-                    setRegionOpacity(Number(event.target.value) / 100)
-                  }
-                  aria-label="Opacità spazio classificato"
+                  type="checkbox"
+                  checked={!hiddenPointSets.includes(label)}
+                  disabled={!showPoints}
+                  onChange={() => togglePointSet(label)}
+                  aria-label={t(
+                    `Mostra punti ${pointName(label).toLowerCase()}`,
+                  )}
                 />
+                <span style={{ background: classColor(label) }} />
+                {t(pointName(label))}
               </label>
-              <div
-                className="point-controls"
-                aria-label="Visibilità delle regioni classificate"
-              >
-                {Array.from({ length: p.dataset.classes }, (_, label) => (
-                  <label className="surface-toggle" key={label}>
-                    <input
-                      type="checkbox"
-                      checked={!hiddenRegions.includes(label)}
-                      onChange={() =>
-                        setHiddenRegions((values) =>
-                          values.includes(label)
-                            ? values.filter((value) => value !== label)
-                            : [...values, label],
-                        )
-                      }
-                      aria-label={`Mostra spazio classe ${label + 1}`}
-                    />
-                    <span style={{ background: classColor(label) }} />
-                    Classe {label + 1}
-                  </label>
-                ))}
-              </div>
-              {!p.plot?.regionsRequested && (
-                <p className="small muted" role="status">
-                  Calcolo delle regioni…
-                </p>
-              )}
-              {p.plot?.regions.some((region) => region.approximate) && (
-                <p className="small muted">
-                  Lo spazio dei modelli non lineari è mostrato con
-                  un’approssimazione campionata.
-                </p>
-              )}
-            </>
-          )}
+            ))}
+          </div>
         </fieldset>
-      )}
 
+        {regionsAvailable && (
+          <fieldset
+            className="graph-control-group region-controls"
+            aria-busy={showRegions && !p.plot?.regionsRequested}
+          >
+            <legend>{t("Spazio classificato")}</legend>
+            <label className="graph-layer-toggle">
+              <input
+                type="checkbox"
+                checked={showRegions}
+                onChange={(event) => setShowRegions(event.target.checked)}
+                aria-label={t("Evidenzia spazio classificato")}
+              />
+              {t("Evidenzia lo spazio previsto per classe")}
+            </label>
+            {showRegions && (
+              <>
+                <label className="graph-opacity-control region-opacity">
+                  <span>
+                    {t(
+                      `Opacità dello spazio ${Math.round(regionOpacity * 100)}%`,
+                    )}
+                  </span>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="1"
+                    value={Math.round(regionOpacity * 100)}
+                    onChange={(event) =>
+                      setRegionOpacity(Number(event.target.value) / 100)
+                    }
+                    aria-label={t("Opacità spazio classificato")}
+                  />
+                </label>
+                <div
+                  className="point-controls"
+                  aria-label={t("Visibilità delle regioni classificate")}
+                >
+                  {Array.from({ length: p.dataset.classes }, (_, label) => (
+                    <label className="surface-toggle" key={label}>
+                      <input
+                        type="checkbox"
+                        checked={!hiddenRegions.includes(label)}
+                        onChange={() =>
+                          setHiddenRegions((values) =>
+                            values.includes(label)
+                              ? values.filter((value) => value !== label)
+                              : [...values, label],
+                          )
+                        }
+                        aria-label={t(`Mostra spazio classe ${label + 1}`)}
+                      />
+                      <span style={{ background: classColor(label) }} />
+                      {t(`Classe ${label + 1}`)}
+                    </label>
+                  ))}
+                </div>
+                {!p.plot?.regionsRequested && (
+                  <p className="small muted" role="status">
+                    {t("Calcolo delle regioni…")}
+                  </p>
+                )}
+                {p.plot?.regions.some((region) => region.approximate) && (
+                  <p className="small muted">
+                    {t(
+                      "Lo spazio dei modelli non lineari è mostrato con un’approssimazione campionata.",
+                    )}
+                  </p>
+                )}
+              </>
+            )}
+          </fieldset>
+        )}
+      </div>
       <CanvasChart
-        label="Dati e previsione del modello"
+        label={t("Dati e previsione del modello")}
         interactive
         rotate={three}
         resetKey={p.dataset}
-        height={340}
+        height={720}
+        aspectRatio={1.6}
         onSelect={onSelect}
         draw={(ctx, w, h, view) =>
           drawScatter(ctx, w, h, {
@@ -285,13 +298,15 @@ export default function DataChart({
         }
       />
       <p className="small muted">
-        {three
-          ? regression
-            ? "Punti = target osservati · superficie = previsione al target mediano. Assi = prime tre feature; le altre sono fissate alle medie del dataset."
-            : p.snapshot.clustering
-              ? "Colori = cluster assegnati · croci = centroidi. Assi = prime tre feature."
-              : "Superfici = confini di decisione. Lo spazio evidenziato mostra la classe prevista. Assi = prime tre feature; le altre sono fissate alle medie del dataset."
-          : "Punti = esempi · sfondo = regioni previste dal modello."}
+        {t(
+          three
+            ? regression
+              ? "Punti = target osservati · superficie = previsione al target mediano. Assi = prime tre feature; le altre sono fissate alle medie del dataset."
+              : p.snapshot.clustering
+                ? "Colori = cluster assegnati · croci = centroidi. Assi = prime tre feature."
+                : "Superfici = confini di decisione. Lo spazio evidenziato mostra la classe prevista. Assi = prime tre feature; le altre sono fissate alle medie del dataset."
+            : "Punti = esempi · sfondo = regioni previste dal modello.",
+        )}
       </p>
     </Panel>
   );

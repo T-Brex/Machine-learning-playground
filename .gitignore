@@ -28,3 +28,5 @@ Desktop.ini
 *.swp
 *.swo
 *~
+
+.agents/

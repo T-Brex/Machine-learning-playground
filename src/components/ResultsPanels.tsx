@@ -1,3 +1,4 @@
+import { useTranslation } from "../i18n/Language.tsx";
 import { useEffect, useMemo, useState } from "react";
 import { METHOD_LABELS } from "../data/catalog.ts";
 import type { PlaygroundProps } from "../types.ts";
@@ -5,29 +6,31 @@ import { Field, format, Panel } from "./Panel.tsx";
 
 /** Show learned numerical state for any model family using a bounded recursive table. */
 export function WeightsPanel({ playground: p }: PlaygroundProps) {
+  const t = useTranslation();
+
   const rows = p.parameters;
   return (
-    <Panel title="Parametri del modello">
+    <Panel title={t("Parametri del modello")}>
       <div className="tablewrap">
         <table className="weighttable">
           <thead>
             <tr>
-              <th>Parametro</th>
-              <th>Valore</th>
+              <th>{t("Parametro")}</th>
+              <th>{t("Valore")}</th>
             </tr>
           </thead>
           <tbody>
             {rows.length ? (
               rows.map(([key, value]) => (
                 <tr key={key}>
-                  <td>{key}</td>
-                  <td>{format(value)}</td>
+                  <td>{t(key)}</td>
+                  <td>{t(format(value))}</td>
                 </tr>
               ))
             ) : (
               <tr>
                 <td colSpan={2}>
-                  Avvia il training per apprendere i parametri.
+                  {t("Avvia il training per apprendere i parametri.")}
                 </td>
               </tr>
             )}
@@ -35,7 +38,7 @@ export function WeightsPanel({ playground: p }: PlaygroundProps) {
         </table>
       </div>
       <p className="small muted">
-        Valori correnti · fino a 200 parametri mostrati.
+        {t("Valori correnti · fino a 200 parametri mostrati.")}
       </p>
     </Panel>
   );
@@ -49,19 +52,24 @@ export function SamplesPanel({
   selected?: number;
   onSelect?: (index: number) => void;
 }) {
+  const t = useTranslation();
+
   const dimensions = p.dataset.data[0]?.x.length || 2;
   return (
-    <Panel title="Campioni del dataset">
+    <Panel title={t("Campioni del dataset")}>
       <div className="tablewrap">
         <table className="data">
           <thead>
             <tr>
-              <th>#</th>
+              <th>{t("#")}</th>
               {Array.from({ length: dimensions }, (_, i) => (
-                <th key={i}>x{i + 1}</th>
+                <th key={i}>
+                  {t("x")}
+                  {t(i + 1)}
+                </th>
               ))}
-              <th>Target y</th>
-              <th>Predizione</th>
+              <th>{t("Target y")}</th>
+              <th>{t("Predizione")}</th>
             </tr>
           </thead>
           <tbody>
@@ -73,18 +81,18 @@ export function SamplesPanel({
                       className="sample-button"
                       onClick={() => onSelect(i)}
                     >
-                      {i + 1}
+                      {t(i + 1)}
                     </button>
                   ) : (
                     i + 1
                   )}
                 </td>
                 {row.x.map((value, j) => (
-                  <td key={j}>{format(value)}</td>
+                  <td key={j}>{t(format(value))}</td>
                 ))}
-                <td>{format(row.y)}</td>
+                <td>{t(format(row.y))}</td>
                 <td>
-                  {p.snapshot.fitted ? format(p.engine.predict(row.x)) : "—"}
+                  {t(p.snapshot.fitted ? format(p.engine.predict(row.x)) : "—")}
                 </td>
               </tr>
             ))}
@@ -92,7 +100,7 @@ export function SamplesPanel({
         </table>
       </div>
       <p className="small muted">
-        Primi 12 campioni. La predizione usa tutte le feature.
+        {t("Primi 12 campioni. La predizione usa tutte le feature.")}
       </p>
     </Panel>
   );
@@ -106,6 +114,8 @@ export function SamplesPanel({
  * the original numeric label retained by the CSV parser.
  */
 export function PredictionPanel({ playground: p }: PlaygroundProps) {
+  const t = useTranslation();
+
   const dimensions = p.dataset.data[0]?.x.length || 2;
   const [values, setValues] = useState<Record<number, string | number>>({
     0: 0.8,
@@ -144,10 +154,10 @@ export function PredictionPanel({ playground: p }: PlaygroundProps) {
           ? `Cluster ${prediction < 0 ? "rumore" : prediction + 1}`
           : `Classe ${prediction}`;
   return (
-    <Panel title="Prova un input">
+    <Panel title={t("Prova un input")}>
       <div className="twocol">
         {x.map((_, i) => (
-          <Field key={i} id={`input-${i}`} label={`Input x${i + 1}`}>
+          <Field key={i} id={`input-${i}`} label={t(`Input x${i + 1}`)}>
             <input
               id={`input-${i}`}
               type="number"
@@ -161,17 +171,20 @@ export function PredictionPanel({ playground: p }: PlaygroundProps) {
         ))}
       </div>
       <div className="result" aria-live="polite">
-        <span className="bigbadge">{output}</span>
+        <span className="bigbadge">{t(output)}</span>
       </div>
       <p className="note">
-        {METHOD_LABELS[p.config.method]} · previsione aggiornata in tempo reale
-        usando tutte le {dimensions} feature.
+        {t(METHOD_LABELS[p.config.method])}{" "}
+        {t("· previsione aggiornata in tempo reale usando tutte le")}{" "}
+        {t(dimensions)} {t("feature.")}
       </p>
       {p.dataset.labels &&
         !p.snapshot.regression &&
         prediction !== null &&
         prediction >= 0 && (
-          <p>Etichetta originale: {p.dataset.labels[prediction]}</p>
+          <p>
+            {t("Etichetta originale:")} {p.dataset.labels[prediction]}
+          </p>
         )}
     </Panel>
   );

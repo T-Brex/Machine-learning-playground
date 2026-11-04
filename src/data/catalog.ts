@@ -104,10 +104,10 @@ export const NEURAL_METHODS: MethodId[] = [
   "adamw",
 ];
 export const NAVIGATION: [PageId, string][] = [
-  ["home", "⌂ Panoramica"],
+  ["home", "Panoramica"],
   ["data", "Dataset"],
   ["train", "Apprendimento"],
   ["visual", "Visualizzazioni"],
   ["method", "Formule e metriche"],
-  ["tutorial", "▷ Guida didattica"],
+  ["tutorial", "Guida didattica"],
 ];

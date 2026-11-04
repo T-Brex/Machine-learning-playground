@@ -1,3 +1,4 @@
+import { useTranslation } from "../i18n/Language.tsx";
 import { useEffect, useMemo, useState } from "react";
 import { METHOD_LABELS } from "../data/catalog.ts";
 import { METHOD_INFO } from "../data/methods.ts";
@@ -19,6 +20,8 @@ import { Field, format, Panel } from "./Panel.tsx";
  * button delegates to the shared controller and actually advances the model.
  */
 export default function Tutorial({ playground: p }: PlaygroundProps) {
+  const t = useTranslation();
+
   const [position, setPosition] = useState(0),
     [query, setQuery] = useState("1"),
     [selected, setSelected] = useState(0);
@@ -52,35 +55,35 @@ export default function Tutorial({ playground: p }: PlaygroundProps) {
   }
   return (
     <Panel
-      title="Guida didattica · percorso e calcoli passo passo"
+      title={t("Guida didattica · percorso e calcoli passo passo")}
       className="algorithm-tutorial"
     >
-      <h2>{METHOD_LABELS[p.config.method]}</h2>
-      <p>{METHOD_INFO[p.config.method].explain}</p>
-      <p className="small muted">{trace.status}</p>
+      <h2>{t(METHOD_LABELS[p.config.method])}</h2>
+      <p>{t(METHOD_INFO[p.config.method].explain)}</p>
+      <p className="small muted">{t(trace.status)}</p>
       <div className="tutorial-progress">
         {steps.map((step, i) => (
           <button
             key={i}
             className={i === active ? "active" : "secondary"}
             onClick={() => setPosition(i)}
-            aria-label={step.title}
+            aria-label={t(step.title)}
           >
-            {i + 1}
+            {t(i + 1)}
           </button>
         ))}
       </div>
       {current && (
         <article className="tutorial-step">
           <div className="tutorial-step-count">
-            Passo {active + 1} / {steps.length}
+            {t(`Passo ${active + 1} / ${steps.length}`)}
           </div>
-          <h3>{current.title}</h3>
-          <pre>{current.detail}</pre>
+          <h3>{t(current.title)}</h3>
+          <pre>{t(current.detail)}</pre>
           {current.fullDetail && (
             <details>
-              <summary>Calcolo completo</summary>
-              <pre>{current.fullDetail}</pre>
+              <summary>{t("Calcolo completo")}</summary>
+              <pre>{t(current.fullDetail)}</pre>
             </details>
           )}
         </article>
@@ -91,10 +94,10 @@ export default function Tutorial({ playground: p }: PlaygroundProps) {
           disabled={active === 0}
           onClick={() => setPosition(active - 1)}
         >
-          ← Indietro
+          {t("← Indietro")}
         </button>
         <button onClick={() => setPosition((active + 1) % steps.length)}>
-          Avanti →
+          {t("Avanti →")}
         </button>
         <button
           className="secondary"
@@ -103,10 +106,10 @@ export default function Tutorial({ playground: p }: PlaygroundProps) {
           }
           onClick={p.step}
         >
-          ▶ Esegui un passo reale nel playground
+          {t("Esegui un passo reale nel playground")}
         </button>
       </div>
-      <Field id="tutorialSampleIndex" label="Cerca un campione per numero">
+      <Field id="tutorialSampleIndex" label={t("Cerca un campione per numero")}>
         <input
           id="tutorialSampleIndex"
           type="text"
@@ -132,9 +135,11 @@ export default function Tutorial({ playground: p }: PlaygroundProps) {
         ))}
       </datalist>
       <p className="small muted">
-        {sample
-          ? `Campione ${selected + 1} · x = [${sample.x.map(format).join(", ")}] · target ${format(sample.y)}${p.snapshot.fitted ? ` · previsione ${format(p.engine.predict(sample.x))}` : ""}`
-          : "Scegli un campione valido."}
+        {t(
+          sample
+            ? `Campione ${selected + 1} · x = [${sample.x.map(format).join(", ")}] · target ${format(sample.y)}${p.snapshot.fitted ? ` · previsione ${format(p.engine.predict(sample.x))}` : ""}`
+            : "Scegli un campione valido.",
+        )}
       </p>
       <DataChart
         playground={p}
@@ -145,19 +150,19 @@ export default function Tutorial({ playground: p }: PlaygroundProps) {
         }}
       />
       {visualization?.message && (
-        <p className="note">{visualization.message}</p>
+        <p className="note">{t(visualization.message)}</p>
       )}
       {entries.length > 0 && (
         <div className="tablewrap">
           <table className="data">
             <thead>
               <tr>
-                <th>Campione</th>
-                <th>Target</th>
-                <th>Predizione</th>
-                <th>Distanza / residuo prima</th>
-                <th>Distanza / residuo dopo</th>
-                <th>Variazione</th>
+                <th>{t("Campione")}</th>
+                <th>{t("Target")}</th>
+                <th>{t("Predizione")}</th>
+                <th>{t("Distanza / residuo prima")}</th>
+                <th>{t("Distanza / residuo dopo")}</th>
+                <th>{t("Variazione")}</th>
               </tr>
             </thead>
             <tbody>
@@ -165,16 +170,16 @@ export default function Tutorial({ playground: p }: PlaygroundProps) {
                 <tr key={i} className={i === selected ? "selected-sample" : ""}>
                   <td>
                     <button className="sample-button" onClick={() => choose(i)}>
-                      {i + 1}
+                      {t(i + 1)}
                     </button>
                   </td>
-                  <td>{format(row.y)}</td>
+                  <td>{t(format(row.y))}</td>
                   <td>
-                    {format(row.prediction ?? row.predicted ?? row.after)}
+                    {t(format(row.prediction ?? row.predicted ?? row.after))}
                   </td>
-                  <td>{format(row.beforeDistance)}</td>
-                  <td>{format(row.afterDistance)}</td>
-                  <td>{format(row.change)}</td>
+                  <td>{t(format(row.beforeDistance))}</td>
+                  <td>{t(format(row.afterDistance))}</td>
+                  <td>{t(format(row.change))}</td>
                 </tr>
               ))}
             </tbody>
@@ -183,13 +188,13 @@ export default function Tutorial({ playground: p }: PlaygroundProps) {
       )}
       {visualization?.details?.map((detail, i) => (
         <details key={i} open>
-          <summary>{detail.title}</summary>
+          <summary>{t(detail.title)}</summary>
           <table className="weighttable">
             <tbody>
               {detail.rows.map((row, j) => (
                 <tr key={j}>
-                  <td>{row.label}</td>
-                  <td>{format(row.value)}</td>
+                  <td>{t(row.label)}</td>
+                  <td>{t(format(row.value))}</td>
                 </tr>
               ))}
             </tbody>
@@ -197,12 +202,12 @@ export default function Tutorial({ playground: p }: PlaygroundProps) {
         </details>
       ))}
       <NetworkPanel playground={p} />
-      <h3>Calcolo numerico completo</h3>
+      <h3>{t("Calcolo numerico completo")}</h3>
       {steps.map((step, i) => (
         <details key={i}>
-          <summary>{step.title}</summary>
-          <pre>{step.detail}</pre>
-          {step.fullDetail && <pre>{step.fullDetail}</pre>}
+          <summary>{t(step.title)}</summary>
+          <pre>{t(step.detail)}</pre>
+          {step.fullDetail && <pre>{t(step.fullDetail)}</pre>}
         </details>
       ))}
     </Panel>

@@ -27,7 +27,7 @@ test("training, cancellation, task switching, tutorial, CSV and mobile navigatio
   await expect(page.locator("#algorithm")).toHaveValue("softmax");
   await page.locator("#step").click();
   await page
-    .getByRole("button", { name: "▷ Guida didattica", exact: true })
+    .getByRole("button", { name: "Guida didattica", exact: true })
     .click();
   await expect(
     page.getByRole("heading", { name: "Regressione softmax", exact: true }),
@@ -41,7 +41,7 @@ test("training, cancellation, task switching, tutorial, CSV and mobile navigatio
     page.getByText("Metriche sul set di validazione", { exact: true }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Regressione", exact: true }).click();
-  await page.getByRole("button", { name: "⌂ Panoramica", exact: true }).click();
+  await page.getByRole("button", { name: "Panoramica", exact: true }).click();
   await page.locator("#csvFile").setInputFiles({
     name: "regression.csv",
     mimeType: "text/csv",
