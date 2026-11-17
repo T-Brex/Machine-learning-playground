@@ -204,6 +204,120 @@ Distanza / residuo prima|Distance / residual before|Расстояние / ос�
 Distanza / residuo dopo|Distance / residual after|Расстояние / остаток после|Distancia / residuo después|更新后距离 / 残差
 Variazione|Change|Изменение|Cambio|变化
 Calcolo numerico completo|Full numerical calculation|Полный численный расчёт|Cálculo numérico completo|完整数值计算
+CNN · MNIST|CNN · MNIST|CNN · MNIST|CNN · MNIST|CNN · MNIST
+CNN · laboratorio MNIST|CNN · MNIST lab|CNN · лаборатория MNIST|CNN · laboratorio MNIST|CNN · MNIST 实验室
+Caricamento laboratorio CNN…|Loading CNN lab…|Загрузка лаборатории CNN…|Cargando el laboratorio CNN…|正在加载 CNN 实验室…
+Esplora una CNN reale: immagine 28×28, convoluzioni, ReLU, max-pooling, appiattimento e classificazione. I filtri iniziano casuali e cambiano con la backpropagation.|Explore a real CNN: 28×28 image, convolutions, ReLU, max-pooling, flattening, and classification. Filters start randomly and change through backpropagation.|Изучите настоящую CNN: изображение 28×28, свёртки, ReLU, max-pooling, развёртывание и классификация. Фильтры инициализируются случайно и меняются при обратном распространении ошибки.|Explora una CNN real: imagen 28×28, convoluciones, ReLU, max-pooling, aplanamiento y clasificación. Los filtros comienzan aleatorios y cambian con la retropropagación.|探索真实 CNN：28×28 图像、卷积、ReLU、最大池化、展平和分类。滤波器随机初始化并通过反向传播更新。
+Carica MNIST|Load MNIST|Загрузить MNIST|Cargar MNIST|加载 MNIST
+Ricarica MNIST|Reload MNIST|Перезагрузить MNIST|Recargar MNIST|重新加载 MNIST
+Download MNIST in corso…|Downloading MNIST…|Загрузка MNIST…|Descargando MNIST…|正在下载 MNIST…
+Scarica il training set MNIST ufficiale (circa 10 MB, solo download).|Download the official MNIST training set (about 10 MB; download only).|Загрузить официальный обучающий набор MNIST (около 10 МБ; только загрузка).|Descarga el conjunto de entrenamiento MNIST oficial (unos 10 MB; solo descarga).|下载官方 MNIST 训练集（约 10 MB，仅下载）。
+Download e decompressione dei file MNIST…|Downloading and decompressing MNIST files…|Загрузка и распаковка файлов MNIST…|Descargando y descomprimiendo los archivos MNIST…|正在下载并解压 MNIST 文件…
+Fonte dati: MNIST training set, Yann LeCun et al., mirror compresso IDX nel repository GitHub fgnt/mnist. Il browser scarica i dati; nessuna immagine viene caricata o inviata.|Data source: MNIST training set by Yann LeCun et al., compressed IDX mirror in the fgnt/mnist GitHub repository. The browser downloads the data; no images are uploaded or sent.|Источник данных: обучающий набор MNIST Яна Лекуна и соавторов, сжатое зеркало IDX в репозитории GitHub fgnt/mnist. Браузер загружает данные; изображения никуда не отправляются.|Fuente de datos: conjunto de entrenamiento MNIST de Yann LeCun et al., espejo IDX comprimido en el repositorio GitHub fgnt/mnist. El navegador descarga los datos; no se suben ni envían imágenes.|数据来源：Yann LeCun 等人的 MNIST 训练集，来自 GitHub 仓库 fgnt/mnist 的压缩 IDX 镜像。浏览器下载数据；不会上传或发送图像。
+immagini bilanciate dal training set MNIST|balanced images from the MNIST training set|сбалансированных изображений из обучающего набора MNIST|imágenes equilibradas del conjunto de entrenamiento MNIST|张来自 MNIST 训练集的均衡图像
+Controlli CNN|CNN controls|Управление CNN|Controles de CNN|CNN 控制
+Avvia training|Start training|Начать обучение|Iniciar entrenamiento|开始训练
+Ricomincia training|Restart training|Перезапустить обучение|Reiniciar entrenamiento|重新开始训练
+Un mini-batch|One mini-batch|Один мини-пакет|Un minilote|一个小批次
+Reinizializza filtri|Reinitialize filters|Переинициализировать фильтры|Reinicializar filtros|重新初始化滤波器
+Learning rate|Learning rate|Скорость обучения|Tasa de aprendizaje|学习率
+mini-batch|mini-batch|мини-пакет|minilote|小批次
+loss|loss|потери|pérdida|损失
+accuracy|accuracy|точность|exactitud|准确率
+Immagine da ispezionare|Image to inspect|Изображение для анализа|Imagen para inspeccionar|要检查的图像
+etichetta reale|true label|истинная метка|etiqueta real|真实标签
+Etichetta MNIST|MNIST label|Метка MNIST|Etiqueta MNIST|MNIST 标签
+1 · Immagine di input|1 · Input image|1 · Входное изображение|1 · Imagen de entrada|1 · 输入图像
+28×28 pixel in scala di grigi · intensità normalizzata tra 0 e 1.|28×28 grayscale pixels · intensity normalized between 0 and 1.|28×28 пикселей в оттенках серого · интенсивность нормализована от 0 до 1.|28×28 píxeles en escala de grises · intensidad normalizada entre 0 y 1.|28×28 灰度像素 · 强度归一化至 0 到 1。
+2 · Filtri creati dalla rete|2 · Filters created by the network|2 · Фильтры, созданные сетью|2 · Filtros creados por la red|2 · 网络创建的滤波器
+Quattro kernel 3×3 inizializzati casualmente; i valori si aggiornano con il gradiente.|Four randomly initialized 3×3 kernels; their values update with the gradient.|Четыре случайно инициализированных ядра 3×3; их значения обновляются градиентом.|Cuatro kernels 3×3 inicializados aleatoriamente; sus valores se actualizan con el gradiente.|四个随机初始化的 3×3 卷积核；其数值随梯度更新。
+3 · Convoluzione|3 · Convolution|3 · Свёртка|3 · Convolución|3 · 卷积
+Il kernel scorre sull’immagine: prodotto elemento per elemento e somma, con stride 1. Risultato: 26×26 per filtro.|The kernel slides over the image: element-wise products are summed with stride 1. Result: 26×26 per filter.|Ядро скользит по изображению: сумма поэлементных произведений с шагом 1. Результат: 26×26 для каждого фильтра.|El kernel se desplaza por la imagen: suma de productos elemento a elemento con stride 1. Resultado: 26×26 por filtro.|卷积核以步幅 1 在图像上滑动：逐元素相乘后求和。每个滤波器得到 26×26 结果。
+4 · ReLU|4 · ReLU|4 · ReLU|4 · ReLU|4 · ReLU
+Attivazione elemento per elemento: max(0, x). I valori negativi diventano zero.|Element-wise activation: max(0, x). Negative values become zero.|Поэлементная активация: max(0, x). Отрицательные значения становятся нулём.|Activación elemento a elemento: max(0, x). Los valores negativos pasan a cero.|逐元素激活：max(0, x)。负值变为零。
+5 · Max-pooling|5 · Max-pooling|5 · Max-pooling|5 · Max-pooling|5 · 最大池化
+Massimo in ogni finestra 2×2, stride 2: riduce ogni mappa da 26×26 a 13×13.|Maximum in each 2×2 window, stride 2: reduces each map from 26×26 to 13×13.|Максимум в каждом окне 2×2 с шагом 2: уменьшает карту с 26×26 до 13×13.|Máximo en cada ventana 2×2, stride 2: reduce cada mapa de 26×26 a 13×13.|每个 2×2 窗口取最大值，步幅为 2：将每张特征图从 26×26 缩小到 13×13。
+6 · Flatten e classificazione|6 · Flatten and classification|6 · Развёртывание и классификация|6 · Aplanamiento y clasificación|6 · 展平与分类
+Le 4 mappe 13×13 diventano 676 valori. Un livello denso produce 10 logits, trasformati in probabilità dalla softmax.|The four 13×13 maps become 676 values. A dense layer produces 10 logits, converted to probabilities by softmax.|Четыре карты 13×13 преобразуются в 676 значений. Полносвязный слой формирует 10 логитов, которые softmax преобразует в вероятности.|Los cuatro mapas de 13×13 se convierten en 676 valores. Una capa densa genera 10 logits, que softmax convierte en probabilidades.|四张 13×13 特征图展平为 676 个值。全连接层生成 10 个 logits，softmax 将其转换为概率。
+Feature map|Feature map|Карта признаков|Mapa de características|特征图
+Predizione|Prediction|Предсказание|Predicción|预测
+Logit|Logit|Логит|Logit|Logit
+Calcolo dettagliato del pixel selezionato|Detailed calculation for the selected pixel|Подробный расчёт выбранного пикселя|Cálculo detallado del píxel seleccionado|所选像素的详细计算
+Clicca un pixel in una mappa, oppure usa i controlli per selezionare filtro e coordinate. La selezione è collegata tra gli stadi.|Click a pixel in a map, or use the controls to select the filter and coordinates. The selection is linked across stages.|Нажмите на пиксель карты или выберите фильтр и координаты с помощью элементов управления. Выбор связан между этапами.|Haz clic en un píxel del mapa o usa los controles para elegir el filtro y las coordenadas. La selección se mantiene entre etapas.|点击特征图中的像素，或使用控件选择滤波器和坐标。所选像素会在各阶段关联显示。
+Mappa da ispezionare|Map to inspect|Карта для анализа|Mapa para inspeccionar|要检查的特征图
+Convoluzione|Convolution|Свёртка|Convolución|卷积
+Riga|Row|Строка|Fila|行
+Colonna|Column|Столбец|Columna|列
+Coordinate selezionate|Selected coordinates|Выбранные координаты|Coordenadas seleccionadas|所选坐标
+indici da 0|zero-based indices|индексация с нуля|índices desde 0|从 0 开始的索引
+Pixel convoluzione collegato|Linked convolution pixel|Связанный пиксель свёртки|Píxel de convolución vinculado|关联的卷积像素
+Patch immagine normalizzata (3×3)|Normalized image patch (3×3)|Нормализованный фрагмент изображения (3×3)|Parche de imagen normalizado (3×3)|归一化图像块（3×3）
+Pesi del filtro (3×3)|Filter weights (3×3)|Веса фильтра (3×3)|Pesos del filtro (3×3)|滤波器权重（3×3）
+Prodotti elemento per elemento|Element-wise products|Поэлементные произведения|Productos elemento a elemento|逐元素乘积
+Somma dei 9 prodotti|Sum of the 9 products|Сумма 9 произведений|Suma de los 9 productos|9 个乘积之和
+Bias del filtro|Filter bias|Смещение фильтра|Sesgo del filtro|滤波器偏置
+Convoluzione: somma + bias|Convolution: sum + bias|Свёртка: сумма + смещение|Convolución: suma + sesgo|卷积：总和 + 偏置
+ReLU: max(0, convoluzione)|ReLU: max(0, convolution)|ReLU: max(0, свёртка)|ReLU: max(0, convolución)|ReLU：max(0, 卷积值)
+finestra|window|окно|ventana|窗口
+coordinate|coordinates|координаты|coordenadas|坐标
+Valore max-pooling|Max-pooling value|Значение max-pooling|Valor de max-pooling|max-pooling 值
+massimo selezionato|selected maximum|выбранный максимум|máximo seleccionado|选中的最大值
+Esplora tutti gli stadi di una CNN su MNIST: due blocchi convoluzionali, ReLU, pooling, flatten, neuroni dense e softmax. I filtri e i pesi si aggiornano con la backpropagation.|Explore every stage of a CNN on MNIST: two convolution blocks, ReLU, pooling, flattening, dense neurons, and softmax. Filters and weights update through backpropagation.|Изучите все этапы CNN на MNIST: два блока свёртки, ReLU, pooling, развёртывание, полносвязные нейроны и softmax. Фильтры и веса обновляются обратным распространением ошибки.|Explora todas las etapas de una CNN en MNIST: dos bloques convolucionales, ReLU, pooling, aplanamiento, neuronas densas y softmax. Los filtros y pesos se actualizan mediante retropropagación.|探索 MNIST CNN 的所有阶段：两个卷积块、ReLU、池化、展平、全连接神经元和 softmax。滤波器和权重通过反向传播更新。
+2 · Convolution layer 1|2 · Convolution layer 1|2 · Слой свёртки 1|2 · Capa convolucional 1|2 · 卷积层 1
+3 · ReLU layer 1|3 · ReLU layer 1|3 · Слой ReLU 1|3 · ReLU 1|3 · ReLU 层 1
+4 · Pooling layer 1|4 · Pooling layer 1|4 · Слой pooling 1|4 · Capa de pooling 1|4 · 池化层 1
+5 · Repetition of feature extraction|5 · Repetition of feature extraction|5 · Повторное извлечение признаков|5 · Repetición de extracción de características|5 · 重复特征提取
+Convolution layer 1|Convolution layer 1|Слой свёртки 1|Capa convolucional 1|卷积层 1
+Convolution layer 2|Convolution layer 2|Слой свёртки 2|Capa convolucional 2|卷积层 2
+ReLU layer 2|ReLU layer 2|Слой ReLU 2|ReLU 2|ReLU 层 2
+Pooling layer 2|Pooling layer 2|Слой pooling 2|Capa de pooling 2|池化层 2
+6 · Flattening layer|6 · Flattening layer|6 · Слой развёртывания|6 · Capa de aplanamiento|6 · 展平层
+7 · Fully connected (dense) layer|7 · Fully connected (dense) layer|7 · Полносвязный слой|7 · Capa totalmente conectada (densa)|7 · 全连接层
+Ogni pixel in uscita è la somma dei 9 prodotti tra patch 3×3 e kernel, più il bias.|Each output pixel is the sum of the 9 products between a 3×3 patch and kernel, plus the bias.|Каждый выходной пиксель — сумма 9 произведений значений фрагмента 3×3 и ядра плюс смещение.|Cada píxel de salida es la suma de los 9 productos entre un parche 3×3 y el kernel, más el sesgo.|每个输出像素都是 3×3 图像块与卷积核之间 9 个乘积之和，再加偏置。
+Il secondo blocco ripete convoluzione, ReLU e pooling sulle feature del primo blocco.|The second block repeats convolution, ReLU, and pooling on the first block's features.|Второй блок повторяет свёртку, ReLU и pooling признаков первого блока.|El segundo bloque repite la convolución, ReLU y pooling sobre las características del primer bloque.|第二个块对第一个块的特征重复卷积、ReLU 和池化。
+Quattro filtri di uscita; ciascuno combina le quattro mappe del primo pooling con 4 kernel 3×3, producendo mappe 11×11.|Four output filters; each combines the four maps from the first pooling layer with four 3×3 kernels, producing 11×11 maps.|Четыре выходных фильтра; каждый объединяет четыре карты первого pooling четырьмя ядрами 3×3, создавая карты 11×11.|Cuatro filtros de salida; cada uno combina los cuatro mapas del primer pooling con cuatro kernels 3×3 y genera mapas de 11×11.|四个输出滤波器；每个滤波器用四个 3×3 卷积核组合第一个池化层的四张特征图，生成 11×11 特征图。
+Finestre 2×2 valide con stride 2: mappe 11×11 → 5×5; l’ultima riga e colonna non entrano in una finestra.|Valid 2×2 windows with stride 2: maps 11×11 → 5×5; the last row and column do not fit in a window.|Допустимые окна 2×2 с шагом 2: карты 11×11 → 5×5; последняя строка и столбец не попадают в окно.|Ventanas válidas de 2×2 con stride 2: mapas 11×11 → 5×5; la última fila y columna quedan fuera de las ventanas.|步幅为 2 的有效 2×2 窗口：特征图从 11×11 变为 5×5；最后一行和一列不在窗口内。
+Media delle finestre 2×2 valide con stride 2: mappe 11×11 → 5×5; l’ultima riga e colonna non entrano in una finestra.|Average of valid 2×2 windows with stride 2: maps 11×11 → 5×5; the last row and column do not fit in a window.|Среднее допустимых окон 2×2 с шагом 2: карты 11×11 → 5×5; последняя строка и столбец не попадают в окно.|Promedio de ventanas válidas de 2×2 con stride 2: mapas 11×11 → 5×5; la última fila y columna quedan fuera de las ventanas.|步幅为 2 的有效 2×2 窗口取平均：特征图从 11×11 变为 5×5；最后一行和一列不在窗口内。
+Le 4 mappe 5×5 sono appiattite in un vettore ordinato di 100 valori, pronto per i livelli densi.|The four 5×5 maps are flattened into an ordered vector of 100 values, ready for the dense layers.|Четыре карты 5×5 преобразуются в упорядоченный вектор из 100 значений для полносвязных слоёв.|Los cuatro mapas de 5×5 se aplanan en un vector ordenado de 100 valores para las capas densas.|四张 5×5 特征图展平为包含 100 个值的有序向量，供全连接层使用。
+Dimensione vettore|Vector size|Размер вектора|Tamaño del vector|向量大小
+Ogni neurone calcola la somma pesata dei 100 ingressi più il bias, poi applica ReLU.|Each neuron calculates the weighted sum of 100 inputs plus the bias, then applies ReLU.|Каждый нейрон вычисляет взвешенную сумму 100 входов со смещением, затем применяет ReLU.|Cada neurona calcula la suma ponderada de 100 entradas más el sesgo y aplica ReLU.|每个神经元计算 100 个输入的加权和加偏置，然后应用 ReLU。
+Neurone hidden da ispezionare|Hidden neuron to inspect|Скрытый нейрон для анализа|Neurona oculta para inspeccionar|要检查的隐藏神经元
+Mostra i 100 prodotti, la somma e il bias di questo neurone|Show this neuron's 100 products, sum, and bias|Показать 100 произведений, сумму и смещение этого нейрона|Mostrar los 100 productos, la suma y el sesgo de esta neurona|显示该神经元的 100 个乘积、总和和偏置
+Output layer · Softmax|Output layer · Softmax|Выходной слой · Softmax|Capa de salida · Softmax|输出层 · Softmax
+8 · Output layer · Softmax|8 · Output layer · Softmax|8 · Выходной слой · Softmax|8 · Capa de salida · Softmax|8 · 输出层 · Softmax
+Dieci neuroni calcolano i logits dai 16 valori dense; softmax li converte in probabilità che sommano a 1.|Ten neurons calculate logits from the 16 dense values; softmax converts them into probabilities that sum to 1.|Десять нейронов вычисляют логиты по 16 значениям плотного слоя; softmax преобразует их в вероятности с суммой 1.|Diez neuronas calculan los logits a partir de los 16 valores densos; softmax los convierte en probabilidades que suman 1.|十个神经元根据 16 个全连接值计算 logits；softmax 将它们转换为总和为 1 的概率。
+Classe di output da ispezionare|Output class to inspect|Класс выходного слоя для анализа|Clase de salida para inspeccionar|要检查的输出类别
+Mostra i 16 prodotti, la somma e il bias per il logit|Show the 16 products, sum, and bias for the logit|Показать 16 произведений, сумму и смещение логита|Mostrar los 16 productos, la suma y el sesgo del logit|显示 logit 的 16 个乘积、总和和偏置
+Softmax|Softmax|Softmax|Softmax|Softmax
+somma|sum|сумма|suma|总和
+Denominatore softmax|Softmax denominator|Знаменатель softmax|Denominador de softmax|Softmax 分母
+Classe|Class|Класс|Clase|类别
+Esponenziale normalizzato|Shifted exponential|Экспонента со сдвигом|Exponencial desplazada|平移后的指数值
+Probabilità|Probability|Вероятность|Probabilidad|概率
+Tipo di pooling|Pooling type|Тип pooling|Tipo de pooling|池化类型
+Max pooling|Max pooling|Max pooling|Max pooling|最大池化
+Average pooling|Average pooling|Average pooling|Average pooling|平均池化
+Pooling|Pooling|Pooling|Pooling|池化
+Mappa max-pooling|Max-pooling map|Карта max-pooling|Mapa de max-pooling|max-pooling 特征图
+Mappa average pooling|Average-pooling map|Карта average pooling|Mapa de average pooling|平均池化特征图
+Mappa di convoluzione layer 2|Convolution map layer 2|Карта свёртки слоя 2|Mapa de convolución de la capa 2|卷积层 2 特征图
+Attivazioni ReLU layer 2|ReLU activations layer 2|Активации ReLU слоя 2|Activaciones ReLU de la capa 2|ReLU 层 2 激活
+Filtro, kernel 3 per 3|Filter, 3 by 3 kernel|Фильтр, ядро 3 на 3|Filtro, kernel de 3 por 3|滤波器，3×3 卷积核
+Canale ingresso|Input channel|Входной канал|Canal de entrada|输入通道
+Patch canale|Channel patch|Фрагмент канала|Parche del canal|通道图像块
+Layer|Layer|Слой|Capa|层
+Pesi del filtro (3×3)|Filter weights (3×3)|Веса фильтра (3×3)|Pesos del filtro (3×3)|滤波器权重（3×3）
+Mappa di convoluzione|Convolution map|Карта свёртки|Mapa de convolución|卷积特征图
+Attivazioni ReLU|ReLU activations|Активации ReLU|Activaciones ReLU|ReLU 激活
+Vettore flatten, 100 valori|Flatten vector, 100 values|Вектор развёртывания, 100 значений|Vector aplanado, 100 valores|展平向量，共 100 个值
+Il cambio del tipo di pooling reinizializza i pesi.|Changing the pooling type reinitializes the weights.|При смене типа pooling веса инициализируются заново.|Al cambiar el tipo de pooling se reinicializan los pesos.|更改池化类型会重新初始化权重。
+Pooling layer 1|Pooling layer 1|Слой pooling 1|Capa de pooling 1|池化层 1
+Media dei 4 valori in ogni finestra 2×2, stride 2: riduce ogni mappa da 26×26 a 13×13.|Average of the 4 values in each 2×2 window, stride 2: reduces each map from 26×26 to 13×13.|Среднее 4 значений в каждом окне 2×2 с шагом 2: уменьшает карту с 26×26 до 13×13.|Promedio de los 4 valores en cada ventana 2×2, stride 2: reduce cada mapa de 26×26 a 13×13.|每个 2×2 窗口取 4 个值的平均值，步幅为 2：将特征图从 26×26 缩小到 13×13。
+Questo pixel sul bordo non rientra in una finestra pooling 2×2 valida.|This edge pixel is not covered by a valid 2×2 pooling window.|Этот граничный пиксель не попадает в допустимое окно pooling 2×2.|Este píxel del borde no pertenece a una ventana de pooling 2×2 válida.|此边缘像素不属于有效的 2×2 池化窗口。
+Valore pooling|Pooling value|Значение pooling|Valor de pooling|池化值
+Somma dei 36 prodotti|Sum of the 36 products|Сумма 36 произведений|Suma de los 36 productos|36 个乘积之和
+Attivazione precedente|Previous activation|Предыдущая активация|Activación anterior|上一级激活
+bias|bias|смещение|sesgo|偏置
 `;
 
 const catalogue = new Map<string, string[]>();

@@ -1,6 +1,6 @@
 import { useTranslation } from "./i18n/Language.tsx";
 /** Application composition: React conditionally mounts each page instead of moving DOM nodes. */
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import DatasetPanel from "./components/DatasetPanel.tsx";
 import ThemeColors from "./components/ThemeColors.tsx";
 import LanguageSelector from "./components/LanguageSelector.tsx";
@@ -12,6 +12,7 @@ import {
 } from "./components/LearningCharts.tsx";
 import MethodReference from "./components/MethodReference.tsx";
 import ModelPanel from "./components/ModelPanel.tsx";
+const CnnLab = lazy(() => import("./components/CnnLab.tsx"));
 import {
   PredictionPanel,
   SamplesPanel,
@@ -83,21 +84,36 @@ export default function App() {
           </div>
         </aside>
         <main className="main">
-          <div className="tabs" aria-label={t("Tipo di problema")}>
-            {(Object.entries(TASKS) as [TaskId, (typeof TASKS)[TaskId]][]).map(
-              ([id, task]) => (
-                <button
-                  key={id}
-                  className={p.config.task === id ? "active" : ""}
-                  aria-pressed={p.config.task === id}
-                  onClick={() => p.selectTask(id)}
-                >
-                  {t(task.label)}
-                </button>
-              ),
-            )}
-          </div>
-          <TrainingToolbar playground={p} />
+          {page !== "cnn" && (
+            <>
+              <div className="tabs" aria-label={t("Tipo di problema")}>
+                {(
+                  Object.entries(TASKS) as [TaskId, (typeof TASKS)[TaskId]][]
+                ).map(([id, task]) => (
+                  <button
+                    key={id}
+                    className={p.config.task === id ? "active" : ""}
+                    aria-pressed={p.config.task === id}
+                    onClick={() => p.selectTask(id)}
+                  >
+                    {t(task.label)}
+                  </button>
+                ))}
+              </div>
+              <TrainingToolbar playground={p} />
+            </>
+          )}
+          {page === "cnn" && (
+            <Suspense
+              fallback={
+                <p className="small muted" role="status">
+                  {t("Caricamento laboratorio CNN…")}
+                </p>
+              }
+            >
+              <CnnLab />
+            </Suspense>
+          )}
           {settings && (
             <div className="settings-grid">
               {["home", "data"].includes(page) && (

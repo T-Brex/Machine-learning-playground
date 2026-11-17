@@ -11,6 +11,8 @@ npm run dev
 
 Open the local URL printed by Vite. Use the task tabs to select a problem, configure its dataset and algorithm, then train continuously or take one step. Pausing retains the current model; changing experiment settings starts a fresh model. CSV files accept comma, semicolon, or tab delimiters, an optional header, at least two numerical features, and a numerical target in the last column.
 
+The **CNN · MNIST** page is a separate image-classification lab. It downloads compressed MNIST training images and labels from the CORS-enabled `fgnt/mnist` GitHub mirror, keeps a balanced subset locally in the browser, and demonstrates the complete pipeline: input image; convolution, ReLU, and configurable max/average pooling; a second convolutional feature-extraction block; flattening (100 values); a 16-neuron dense layer; and the 10-class softmax output. The visualized architecture uses two 3×3 convolution blocks with four feature maps each, with intermediate map sizes 26×26 → 13×13 → 11×11 → 5×5. Click a map pixel or set the layer, filter, stage, and coordinates to inspect its exact 3×3 input patch(es), each kernel's weights and products, sum and bias, ReLU, and the linked 2×2 pooling calculation. Dense-layer inspectors list every input, weight, and product; the output also shows the shifted exponentials and normalization used by softmax. Use **Un mini-batch** to inspect individual training updates or start/pause training. Images are downloaded only; the app does not upload them.
+
 ```sh
 npm run typecheck        # Strict TypeScript checks for source, configuration, and tests
 npm test                 # Numerical engine, model families, and CSV regression checks
@@ -29,6 +31,7 @@ src/
   types.ts                      Shared configuration, model, snapshot, and chart contracts
   components/                   Dataset, model, training, chart, tutorial, and result views
     DataChart.tsx               Independent boundary, point-group, and classified-space controls
+    CnnLab.tsx                  MNIST download, CNN training, and per-layer visualizations
   hooks/usePlayground.ts         Experiment state, CSV loading, timer lifecycle, pause/resume
   hooks/useSolver.ts             Worker lifecycle, commands, asynchronous predictions, frame commits
   data/
@@ -40,6 +43,7 @@ src/
     createEngine.ts             Isolated model state, fitting, prediction, evaluation
     math.ts                     Shared numerical and statistical helpers
     neural.ts                   Forward pass, backpropagation, optimizer updates
+    cnn.ts                      MNIST IDX parsing, convolution, pooling, and CNN backpropagation
     modelGuards.ts              Runtime model invariants and safe union narrowing
     modelParameters.ts          Bounded parameter table prepared inside the worker
     trees.ts                    Classification tree construction

@@ -110,4 +110,5 @@ export const NAVIGATION: [PageId, string][] = [
   ["visual", "Visualizzazioni"],
   ["method", "Formule e metriche"],
   ["tutorial", "Guida didattica"],
+  ["cnn", "CNN · MNIST"],
 ];

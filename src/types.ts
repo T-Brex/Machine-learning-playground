@@ -66,7 +66,7 @@ export type DatasetId =
   | "multiclass_blobs"
   | "multiclass_spiral";
 export type PageId =
-  "home" | "data" | "train" | "visual" | "method" | "tutorial";
+  "home" | "data" | "train" | "visual" | "method" | "tutorial" | "cnn";
 export type ParameterValue = string | number | boolean;
 export type Parameters = Record<string, ParameterValue>;
 /** Select controls serialize values as strings; numerical normalization happens at the engine boundary. */
